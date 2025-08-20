@@ -1,5 +1,28 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+
+// Helpers
+const parseDMY = (d) => {
+	if (!d) return new Date(0);
+	const [dd, mm, yy] = d.split('/');
+	const year = Number(yy) + 2000; // '25' -> 2025
+	return new Date(year, Number(mm) - 1, Number(dd));
+};
+const formatDMY = (date) => {
+	const dd = String(date.getDate()).padStart(2, '0');
+	const mm = String(date.getMonth() + 1).padStart(2, '0');
+	const yy = String(date.getFullYear()).slice(-2);
+	return `${dd}/${mm}/${yy}`;
+};
+const addDays = (dateStr, days) => {
+	const dt = parseDMY(dateStr);
+	dt.setDate(dt.getDate() + days);
+	return formatDMY(dt);
+};
+const computeStatuses = (list) => {
+	const sorted = [...list].sort((a, b) => parseDMY(a.startDate) - parseDMY(b.startDate));
+	return sorted.map((b, idx) => ({ ...b, status: idx === 0 ? 'Ready' : 'N/A' }));
+};
 
 // Shared UI: Hamburger + Side Menu
 const SideMenu = ({ isOpen, onClose, onNavigate, currentPage }) => {
@@ -8,30 +31,20 @@ const SideMenu = ({ isOpen, onClose, onNavigate, currentPage }) => {
 			{isOpen && (
 				<div
 					style={{
-						position: 'fixed',
-						top: 0,
-						left: 0,
-						width: '100vw',
-						height: '100vh',
-						background: 'rgba(0,0,0,0.2)',
-						zIndex: 999
+						position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+						background: 'rgba(0,0,0,0.25)', zIndex: 999, animation: 'fadeIn 180ms ease'
 					}}
 					onClick={onClose}
 				/>
 			)}
 			<div
+				className="menu"
 				style={{
-					position: 'fixed',
-					top: 0,
-					right: isOpen ? 0 : -280,
-					height: '100vh',
-					width: 280,
-					background: '#fff',
-					boxShadow: '0 0 18px rgba(0,0,0,0.2)',
-					transition: 'right 200ms ease',
-					zIndex: 1000,
-					display: 'flex',
-					flexDirection: 'column'
+					position: 'fixed', top: 0,
+					right: isOpen ? 0 : -300,
+					height: '100vh', width: 300,
+					background: '#fff', boxShadow: '0 0 18px rgba(0,0,0,0.2)', transition: 'right 200ms ease', zIndex: 1000,
+					display: 'flex', flexDirection: 'column'
 				}}
 			>
 				<div style={{ padding: '20px 20px 10px', borderBottom: '1px solid #eee' }}>
@@ -48,14 +61,8 @@ const SideMenu = ({ isOpen, onClose, onNavigate, currentPage }) => {
 							key={item.key}
 							onClick={() => onNavigate(item.key)}
 							style={{
-								textAlign: 'left',
-								padding: '12px 14px',
-								border: '1px solid #e0e0e0',
-								borderRadius: 8,
-								cursor: 'pointer',
-								background: currentPage === item.key ? '#e8f5e8' : '#fff',
-								fontWeight: 600,
-								color: '#333'
+								textAlign: 'left', padding: '12px 14px', border: '1px solid #e0e0e0', borderRadius: 8, cursor: 'pointer',
+								background: currentPage === item.key ? '#e8f5e8' : '#fff', fontWeight: 600, color: '#333', transition: 'background 120ms'
 							}}
 						>
 							{item.label}
@@ -81,7 +88,7 @@ const Header = ({ title, rightContent, onOpenMenu }) => (
 		</div>
 		<div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
 			{rightContent}
-			<div title="menu" onClick={onOpenMenu} style={{ cursor: 'pointer' }}>
+			<div title="menu" onClick={onOpenMenu} style={{ cursor: 'pointer', transform: 'translateZ(0)' }}>
 				<div style={{ width: 36, height: 6, background: '#bdbdbd', borderRadius: 6, marginBottom: 6 }} />
 				<div style={{ width: 36, height: 6, background: '#bdbdbd', borderRadius: 6, marginBottom: 6 }} />
 				<div style={{ width: 36, height: 6, background: '#bdbdbd', borderRadius: 6 }} />
@@ -92,23 +99,51 @@ const Header = ({ title, rightContent, onOpenMenu }) => (
 
 const Dashboard = ({ onOpenMenu }) => {
 	const [now, setNow] = useState(new Date());
-	// Demo batches (sorted by start date). Only first is actively monitored per spec.
-	const batchesRaw = useMemo(() => ([
+	// Load batches from localStorage or fallback
+	const defaultBatches = useMemo(() => ([
 		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', phLevel: 5.6, brix: 16.0, alcohol: 25.0 },
 		{ id: '002', startDate: '22/05/25', endDate: '25/05/25' },
 		{ id: '003', startDate: '25/05/25', endDate: '28/05/25' },
 		{ id: '004', startDate: '27/05/25', endDate: '30/05/25' },
 		{ id: '005', startDate: '30/05/25', endDate: '02/06/25' }
 	]), []);
+	const batchesRaw = useMemo(() => {
+		try {
+			const saved = JSON.parse(localStorage.getItem('batches') || 'null');
+			return saved && Array.isArray(saved) && saved.length ? saved : defaultBatches;
+		} catch { return defaultBatches; }
+	}, [defaultBatches]);
+	const batches = useMemo(() => computeStatuses(batchesRaw), [batchesRaw]);
 
-	// Enforce only one monitored batch at a time → mark the earliest (index 0) as Ready, others NA
-	const batches = useMemo(() => {
-		return batchesRaw.map((b, idx) => ({ ...b, status: idx === 0 ? 'Ready' : 'N/A' }));
-	}, [batchesRaw]);
-
-	React.useEffect(() => {
+	useEffect(() => {
 		const t = setInterval(() => setNow(new Date()), 1000);
 		return () => clearInterval(t);
+	}, []);
+
+	useEffect(() => {
+		// Inject responsive CSS + animations once
+		const style = document.createElement('style');
+		style.innerHTML = `
+			@keyframes fadeIn { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
+			@keyframes pop { from { opacity: 0; transform: scale(.98) translateY(6px) } to { opacity: 1; transform: scale(1) translateY(0) } }
+			.card { animation: pop .35s ease both; transition: transform 160ms ease; }
+			.card:hover { transform: translateY(-2px); }
+			.chartCard { animation: pop .35s ease .05s both; }
+			.tableWrap { animation: pop .35s ease .05s both; }
+			.menu { width: 300px; }
+			.inputRow { gap: 12px; }
+			.inputRow input { width: 100%; }
+			.detailsGrid, .summaryGrid, .monitorGrid { grid-template-columns: 1.2fr 1fr; }
+			@media (max-width: 980px) {
+				.grid-3 { grid-template-columns: 1fr !important; }
+				.grid-2 { grid-template-columns: 1fr !important; }
+				.menu { width: 85vw !important; }
+				.detailsGrid, .summaryGrid, .monitorGrid { grid-template-columns: 1fr !important; }
+				.inputRow { flex-direction: column; align-items: flex-start; }
+			}
+		`;
+		document.head.appendChild(style);
+		return () => { document.head.removeChild(style); };
 	}, []);
 
 	const timeEl = (
@@ -128,53 +163,61 @@ const Dashboard = ({ onOpenMenu }) => {
 	];
 
 	// Day / Month / Year selector for charts
-	const [range, setRange] = useState('day');
+	const [litersRange, setLitersRange] = useState('day');
+	const [salesRange, setSalesRange] = useState('day');
 	const aggregateBy = (rows, valueKey, unit) => {
 		if (unit === 'day') return rows;
-		if (unit === 'month') {
+		// Helper: month aggregation
+		const toMonthTotals = () => {
 			const totals = {};
 			rows.forEach(r => {
 				const month = (r.date || '').split('-')[0];
 				totals[month] = (totals[month] || 0) + (r[valueKey] || 0);
 			});
-			return Object.entries(totals).map(([label, total]) => ({ date: label, [valueKey]: total }));
+			const monthOrder = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+			return Object.entries(totals)
+				.sort((a,b) => monthOrder.indexOf(a[0]) - monthOrder.indexOf(b[0]))
+				.map(([label, total]) => ({ date: label, [valueKey]: total }));
+		};
+		if (unit === 'month') {
+			return toMonthTotals();
 		}
 		if (unit === 'year') {
-			const total = rows.reduce((s, r) => s + (r[valueKey] || 0), 0);
-			return [{ date: '2025', [valueKey]: total }];
+			// For this dataset, show monthly points within the year (more readable than a single total point)
+			return toMonthTotals();
 		}
 		return rows;
 	};
-	const litersChartData = useMemo(() => aggregateBy(lambanogData, 'liters', range), [lambanogData, range]);
-	const salesChartAgg = useMemo(() => aggregateBy(salesData, 'sales', range), [salesData, range]);
+	const litersChartData = useMemo(() => aggregateBy(lambanogData, 'liters', litersRange), [lambanogData, litersRange]);
+	const salesChartAgg = useMemo(() => aggregateBy(salesData, 'sales', salesRange), [salesData, salesRange]);
 
 	return (
 		<div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
 			<Header title="Dashboard" rightContent={timeEl} onOpenMenu={onOpenMenu} />
 
-			<div style={{
+			<div className="grid-3" style={{
 				display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, margin: 20, marginBottom: 30
 			}}>
-				<div style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #333' }}>
+				<div className="card" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #333' }}>
 					<h3 style={{ color: '#333', fontSize: 16, fontWeight: 600, marginBottom: 15 }}>Total Batches Being Monitored</h3>
 					<div style={{ fontSize: 48, fontWeight: 700, color: '#333' }}>{batches.length}</div>
 				</div>
-				<div style={{ background: '#e8f5e8', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #4CAF50' }}>
+				<div className="card" style={{ background: '#e8f5e8', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #4CAF50' }}>
 					<h3 style={{ color: '#333', fontSize: 16, fontWeight: 600, marginBottom: 15 }}>Batches Ready</h3>
 					<div style={{ fontSize: 48, fontWeight: 700, color: '#4CAF50' }}>{batches.filter(b => b.status === 'Ready').length}</div>
 				</div>
-				<div style={{ background: '#ffebee', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #f44336' }}>
+				<div className="card" style={{ background: '#ffebee', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #f44336' }}>
 					<h3 style={{ color: '#333', fontSize: 16, fontWeight: 600, marginBottom: 15 }}>Batches Not Ready</h3>
 					<div style={{ fontSize: 48, fontWeight: 700, color: '#f44336' }}>{batches.filter(b => b.status !== 'Ready').length}</div>
 				</div>
 			</div>
 
-			<div style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', margin: 20, marginBottom: 30 }}>
+			<div className="tableWrap" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', margin: 20, marginBottom: 30 }}>
 				<h2 style={{ color: '#333', fontSize: 20, fontWeight: 600, marginBottom: 20 }}>Batch List</h2>
 				<div style={{ overflowX: 'auto' }}>
-					{/* Outer frame to get rounded green border like the mock */}
+					{/* Outer frame */}
 					<div style={{ border: '3px solid #16a34a', borderRadius: 12, overflow: 'hidden' }}>
-						<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+						<table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 14 }}>
 							<thead>
 								<tr style={{ background: '#fff', color: '#111' }}>
 									{['Batch ID','Start Date','End Date','pH Level (%)','Brix (%)','Alcohol (%)','Fermentation Status'].map((h) => (
@@ -185,9 +228,9 @@ const Dashboard = ({ onOpenMenu }) => {
 								</tr>
 							</thead>
 							<tbody>
-								{batches.map((batch, index) => (
+								{batches.map((batch) => (
 									<tr key={batch.id} style={{ backgroundColor: '#fff' }}>
-										<td style={{ padding: '14px 12px', textAlign: 'center', borderRight: '2px solid #16a34a', borderBottom: '2px solid #16a34a' }}>{batch.id}</td>
+										<td style={{ padding: '14px 12px', textAlign: 'center', borderRight: '2px solid #16a34a', borderBottom: '2px solid #16a34a', wordBreak: 'break-word' }}>{batch.id}</td>
 										<td style={{ padding: '14px 12px', textAlign: 'center', borderRight: '2px solid #16a34a', borderBottom: '2px solid #16a34a' }}>{batch.startDate}</td>
 										<td style={{ padding: '14px 12px', textAlign: 'center', borderRight: '2px solid #16a34a', borderBottom: '2px solid #16a34a' }}>{batch.endDate}</td>
 										<td style={{ padding: '14px 12px', textAlign: 'center', borderRight: '2px solid #16a34a', borderBottom: '2px solid #16a34a' }}>{batch.status === 'Ready' ? batch.phLevel : 'N/A'}</td>
@@ -202,11 +245,11 @@ const Dashboard = ({ onOpenMenu }) => {
 				</div>
 			</div>
 
-			<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, margin: 20, marginBottom: 30 }}>
-				<div style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+			<div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, margin: 20, marginBottom: 30 }}>
+				<div className="chartCard" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
 					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
 						<h3 style={{ color: '#333', fontSize: 18, fontWeight: 600 }}>Total Liters of Lambanog Made</h3>
-						<select value={range} onChange={(e) => setRange(e.target.value)} style={{ fontSize: 12, color: '#333', border: '1px solid #e0e0e0', borderRadius: 6, padding: '4px 8px', background: '#fff' }}>
+						<select value={litersRange} onChange={(e) => setLitersRange(e.target.value)} style={{ fontSize: 12, color: '#333', border: '1px solid #e0e0e0', borderRadius: 6, padding: '4px 8px', background: '#fff' }}>
 							<option value="day">Day</option>
 							<option value="month">Month</option>
 							<option value="year">Year</option>
@@ -224,10 +267,10 @@ const Dashboard = ({ onOpenMenu }) => {
 						</ResponsiveContainer>
 					</div>
 				</div>
-				<div style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+				<div className="chartCard" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
 					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
 						<h3 style={{ color: '#333', fontSize: 18, fontWeight: 600 }}>Predicted Sales Trends</h3>
-						<select value={range} onChange={(e) => setRange(e.target.value)} style={{ fontSize: 12, color: '#333', border: '1px solid #e0e0e0', borderRadius: 6, padding: '4px 8px', background: '#fff' }}>
+						<select value={salesRange} onChange={(e) => setSalesRange(e.target.value)} style={{ fontSize: 12, color: '#333', border: '1px solid #e0e0e0', borderRadius: 6, padding: '4px 8px', background: '#fff' }}>
 							<option value="day">Day</option>
 							<option value="month">Month</option>
 							<option value="year">Year</option>
@@ -250,23 +293,63 @@ const Dashboard = ({ onOpenMenu }) => {
 	);
 };
 
-const SaveNewRecord = ({ onOpenMenu }) => {
+const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 	const [formData, setFormData] = useState({ brix: '16.0', alcoholContent: '25.0', temperature: '32.0 C', timeInterval: '56:04:01', logDate: '20/05/25' });
 	const handleInputChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 	const inputBox = (label, name, value) => (
-		<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+		<div className="inputRow" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 			<label style={{ color: '#9e9e9e', fontWeight: 700, minWidth: 140 }}>{label}</label>
 			<input name={name} value={value} onChange={handleInputChange} style={{ flex: 1, maxWidth: 350, padding: '18px 16px', borderRadius: 12, border: '1px solid #eee', background: '#f6f7f7', textAlign: 'right', fontSize: 18, color: '#333' }} />
 		</div>
 	);
 
+	const getNextId = () => {
+		try {
+			const arr = JSON.parse(localStorage.getItem('batches') || '[]');
+			const max = arr.reduce((m, b) => {
+				const n = parseInt(b.id, 10);
+				return Number.isFinite(n) && n > m ? n : m;
+			}, 0);
+			const next = max + 1;
+			return { num: next, str: String(next).padStart(3, '0') };
+		} catch {
+			return { num: 1, str: '001' };
+		}
+	};
+	const nextId = getNextId();
+
+	const handleSave = () => {
+		try {
+			const existing = JSON.parse(localStorage.getItem('batches') || '[]');
+			const fresh = getNextId();
+			const start = formData.logDate || formatDMY(new Date());
+			const end = addDays(start, 2);
+			const newRec = { id: fresh.str, startDate: start, endDate: end };
+			const updated = computeStatuses([...existing, newRec]);
+			localStorage.setItem('batches', JSON.stringify(updated));
+			alert(`Record saved (Batch ${fresh.str}). It will appear in the batch list.`);
+			onNavigate && onNavigate('dashboard');
+		} catch (e) {
+			console.error(e);
+			alert('Failed to save record.');
+		}
+	};
+
+	const handleReset = () => {
+		if (window.confirm('Reset all batches and dashboard?')) {
+			localStorage.removeItem('batches');
+			alert('Batches reset.');
+			onNavigate && onNavigate('dashboard');
+		}
+	};
+
 	return (
 		<div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
 			<Header title="Save New Record" onOpenMenu={onOpenMenu} />
-			<div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24, padding: 24 }}>
+			<div className="detailsGrid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24, padding: 24 }}>
 				<div style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 					<div style={{ fontSize: 28, fontWeight: 800, color: '#111', marginBottom: 12 }}>Production Details</div>
-					<div style={{ background: '#f1f2f4', display: 'inline-block', padding: '8px 14px', borderRadius: 10, marginBottom: 18, color: '#333', fontWeight: 700 }}>Batch Number: 001</div>
+					<div style={{ background: '#f1f2f4', display: 'inline-block', padding: '8px 14px', borderRadius: 10, marginBottom: 18, color: '#333', fontWeight: 700 }}>Batch Number: {nextId.str}</div>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 						{inputBox('Brix (sugar)', 'brix', formData.brix)}
 						{inputBox('Alcohol Content', 'alcoholContent', formData.alcoholContent)}
@@ -290,13 +373,18 @@ const SaveNewRecord = ({ onOpenMenu }) => {
 					</div>
 					<div style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Fermentation Timeline</div>
-						<div style={{ color: '#333' }}>Start Date: <b style={{ color: '#16a34a' }}>20/05/25</b></div>
-						<div style={{ color: '#333' }}>End Date: <b style={{ color: '#16a34a' }}>22/05/25</b></div>
+						<div style={{ color: '#333' }}>Start Date: <b style={{ color: '#16a34a' }}>{formData.logDate}</b></div>
+						<div style={{ color: '#333' }}>End Date: <b style={{ color: '#16a34a' }}>{addDays(formData.logDate, 2)}</b></div>
 					</div>
 				</div>
 			</div>
-			<div style={{ textAlign: 'center', margin: '24px 0 40px' }}>
-				<button style={{ background: '#16a34a', color: '#fff', fontWeight: 800, border: 'none', padding: '16px 42px', borderRadius: 50, fontSize: 20, cursor: 'pointer' }}>Save Record</button>
+			<div style={{ display: 'flex', justifyContent: 'center', gap: 12, margin: '24px 0 40px' }}>
+				<button onClick={handleSave} style={{ background: '#16a34a', color: '#fff', fontWeight: 800, border: 'none', padding: '16px 42px', borderRadius: 50, fontSize: 18, cursor: 'pointer' }}>
+					Save Record
+				</button>
+				<button onClick={handleReset} style={{ background: '#ffffff', color: '#333', fontWeight: 700, border: '2px solid #e5e7eb', padding: '16px 24px', borderRadius: 50, fontSize: 16, cursor: 'pointer' }}>
+					Reset
+				</button>
 			</div>
 		</div>
 	);
@@ -306,7 +394,7 @@ const RecordSummary = ({ onOpenMenu }) => {
 	return (
 		<div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
 			<Header title="Record Summary" onOpenMenu={onOpenMenu} />
-			<div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24, padding: 24 }}>
+			<div className="summaryGrid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24, padding: 24 }}>
 				<div style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 					<div style={{ fontSize: 36, fontWeight: 800, color: '#111', marginBottom: 12 }}>Batch 001</div>
 					{['Brix (sugar):|16.0', 'Alcohol Content:|25.0', 'Temperature:|32.0 C', 'Time Interval|56:04:01', 'Log Date|20/05/25'].map((row, i) => {
@@ -330,40 +418,19 @@ const RecordSummary = ({ onOpenMenu }) => {
 					<div style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Production Summary</div>
 						<div style={{
-							display: 'grid',
-							gridTemplateColumns: '1fr 1fr',
-							border: '2px solid #cfe3cf',
-							borderRadius: 12,
-							overflow: 'hidden',
-							background: '#eaf6ea'
+							display: 'grid', gridTemplateColumns: '1fr 1fr', border: '2px solid #cfe3cf', borderRadius: 12, overflow: 'hidden', background: '#eaf6ea'
 						}}>
-							{/* Row: Batch */}
-							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf', fontWeight: 800, color: '#222' }}>Batch</div>
-							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf', color: '#222' }}>001</div>
-
-							{/* Row: Total Tuba Produced */}
-							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf', fontWeight: 800, color: '#222' }}>Total Tuba Produced</div>
-							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf', color: '#222' }}>18.5 L</div>
-
-							{/* Row: Duration with subtext */}
-							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf', fontWeight: 800, color: '#222' }}>
-								Duration
-								<div style={{ fontSize: 11, color: '#8a8f98', marginTop: 6, lineHeight: 1.2 }}>
-									Start Date 20/05/25<br />
-									End Date 20/05/27
-								</div>
-							</div>
-							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf', color: '#222' }}>2 days</div>
-
-							{/* Row: Predicted Income with subtext and button */}
-							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', fontWeight: 800, color: '#222' }}>
-								Predicted Income
-								<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-									<span style={{ fontSize: 11, color: '#8a8f98' }}>2% higher than last batch</span>
-									<button style={{ fontSize: 11, color: '#666', border: '1px solid #cfe3cf', background: '#f7faf7', padding: '4px 8px', borderRadius: 6, cursor: 'pointer' }}>View Analytics</button>
-								</div>
-							</div>
+							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf' }}>Batch</div>
+							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>001</div>
+							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf' }}>Total Tuba Produced</div>
+							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>18.5 L</div>
+							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf' }}>Duration</div>
+							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>2 days<div style={{ fontSize: 11, color: '#8a8f98', marginTop: 6 }}>Start Date 20/05/25<br/>End Date 20/05/27</div></div>
+							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf' }}>Predicted Income</div>
 							<div style={{ padding: 14, background: '#fff', color: '#16a34a', fontWeight: 900 }}>₱2,220.00</div>
+						</div>
+						<div style={{ marginTop: 8, color: '#9e9e9e', fontSize: 12 }}>
+							2% higher than last batch • <button style={{ fontSize: 11, color: '#666', border: '1px solid #cfe3cf', background: '#f7faf7', padding: '4px 8px', borderRadius: 6, cursor: 'pointer' }}>View Analytics</button>
 						</div>
 					</div>
 				</div>
@@ -391,7 +458,7 @@ const FermentationMonitoring = ({ onOpenMenu }) => {
 	return (
 		<div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
 			<Header title="Fermentation Monitoring" onOpenMenu={onOpenMenu} />
-			<div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, padding: 24 }}>
+			<div className="monitorGrid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, padding: 24 }}>
 				<div style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 					<div style={{ width: '100%', height: 420 }}>
 						<ResponsiveContainer width="100%" height="100%">
@@ -439,19 +506,19 @@ function App() {
 	const pageEl = () => {
 		switch (currentPage) {
 			case 'dashboard': return <Dashboard onOpenMenu={() => setMenuOpen(true)} />;
-			case 'save-record': return <SaveNewRecord onOpenMenu={() => setMenuOpen(true)} />;
+			case 'save-record': return <SaveNewRecord onOpenMenu={() => setMenuOpen(true)} onNavigate={navigate} />;
 			case 'record-summary': return <RecordSummary onOpenMenu={() => setMenuOpen(true)} />;
 			case 'fermentation-monitoring': return <FermentationMonitoring onOpenMenu={() => setMenuOpen(true)} />;
 			default: return <Dashboard onOpenMenu={() => setMenuOpen(true)} />;
 		}
 	};
 
-	return (
-		<div className="App">
+  return (
+    <div className="App">
 			{pageEl()}
 			<SideMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} onNavigate={navigate} currentPage={currentPage} />
-		</div>
-	);
+    </div>
+  );
 }
 
 export default App;
