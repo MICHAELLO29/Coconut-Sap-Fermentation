@@ -133,6 +133,11 @@ const Dashboard = ({ onOpenMenu }) => {
 			.menu { width: 300px; }
 			.inputRow { gap: 12px; }
 			.inputRow input { width: 100%; }
+			/* Generic panel animation used on Save New Record and Record Summary */
+			.panel { opacity: 0; transform: translateY(10px); }
+			.panel.enter { opacity: 1; transform: translateY(0); transition: opacity .4s ease, transform .4s ease; }
+			.pressable { transition: transform 120ms ease; }
+			.pressable:active { transform: scale(0.98); }
 			.detailsGrid, .summaryGrid, .monitorGrid { grid-template-columns: 1.2fr 1fr; }
 			@media (max-width: 980px) {
 				.grid-3 { grid-template-columns: 1fr !important; }
@@ -153,14 +158,68 @@ const Dashboard = ({ onOpenMenu }) => {
 		</div>
 	);
 
-	const lambanogData = [
-		{ date: 'May-22', liters: 25 },{ date: 'May-25', liters: 16 },{ date: 'May-26', liters: 40 },{ date: 'May-31', liters: 28 },
-		{ date: 'Jun-02', liters: 48 },{ date: 'Jun-05', liters: 44 },{ date: 'Jun-07', liters: 45 },{ date: 'Jun-10', liters: 36 },{ date: 'Jun-16', liters: 47 }
-	];
-	const salesData = [
-		{ date: 'May-22', sales: 1400 },{ date: 'May-25', sales: 1500 },{ date: 'May-29', sales: 1700 },{ date: 'May-31', sales: 900 },
-		{ date: 'Jun-02', sales: 950 },{ date: 'Jun-05', sales: 1500 },{ date: 'Jun-10', sales: 1650 },{ date: 'Jun-16', sales: 1800 }
-	];
+	// Build chart base data from batches
+	const toLabel = (dmy) => {
+		if (!dmy) return 'N/A';
+		const d = parseDMY(dmy);
+		const month = d.toLocaleString('en-US', { month: 'short' }); // May, Jun
+		const day = String(d.getDate()).padStart(2, '0');
+		return `${month}-${day}`;
+	};
+	const baseSeries = useMemo(() => {
+		// Prefer seeded chart data (used after Reset). If missing, use built-in sample to match reference.
+		let seedLiters = null;
+		let seedSales = null;
+		try {
+			seedLiters = JSON.parse(localStorage.getItem('chart_liters') || 'null');
+			seedSales = JSON.parse(localStorage.getItem('chart_sales') || 'null');
+		} catch {}
+		if (!Array.isArray(seedLiters) || !seedLiters.length || !Array.isArray(seedSales) || !seedSales.length) {
+			seedLiters = [
+				{ date: 'May-22', liters: 26 },
+				{ date: 'May-25', liters: 28 },
+				{ date: 'May-27', liters: 22 },
+				{ date: 'May-29', liters: 39 },
+				{ date: 'May-31', liters: 26 },
+				{ date: 'Jun-02', liters: 45 },
+				{ date: 'Jun-05', liters: 41 },
+				{ date: 'Jun-07', liters: 38 },
+				{ date: 'Jun-10', liters: 40 },
+				{ date: 'Jun-12', liters: 31 },
+				{ date: 'Jun-16', liters: 38 }
+			];
+			seedSales = [
+				{ date: 'May-22', sales: 1500 },
+				{ date: 'May-25', sales: 1550 },
+				{ date: 'May-27', sales: 1600 },
+				{ date: 'May-29', sales: 1700 },
+				{ date: 'May-31', sales: 900 },
+				{ date: 'Jun-02', sales: 950 },
+				{ date: 'Jun-05', sales: 1600 },
+				{ date: 'Jun-07', sales: 1700 },
+				{ date: 'Jun-10', sales: 1800 },
+				{ date: 'Jun-12', sales: 1900 },
+				{ date: 'Jun-16', sales: 2000 }
+			];
+		}
+		// Merge seed arrays by date
+		const byDate = {};
+		seedLiters.forEach(r => { byDate[r.date] = { date: r.date, liters: r.liters ?? null, sales: null }; });
+		seedSales.forEach(r => { byDate[r.date] = { ...(byDate[r.date] || { date: r.date, liters: null }), sales: r.sales ?? null }; });
+		const monthOrder = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+		return Object.values(byDate).sort((a,b)=>{
+			const [ma,da] = a.date.split('-');
+			const [mb,db] = b.date.split('-');
+			if (ma !== mb) return monthOrder.indexOf(ma) - monthOrder.indexOf(mb);
+			return parseInt(da,10) - parseInt(db,10);
+		});
+ 
+		// NOTE: we only fall back to batches when there are no seeds at all (handled above with sample),
+		// so we always return before reaching here.
+	}, [batches]);
+
+	const lambanogData = baseSeries.map(r => ({ date: r.date, liters: r.liters }));
+	const salesData = baseSeries.map(r => ({ date: r.date, sales: r.sales }));
 
 	// Day / Month / Year selector for charts
 	const [litersRange, setLitersRange] = useState('day');
@@ -294,14 +353,40 @@ const Dashboard = ({ onOpenMenu }) => {
 };
 
 const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
-	const [formData, setFormData] = useState({ brix: '16.0', alcoholContent: '25.0', temperature: '32.0 C', timeInterval: '56:04:01', logDate: '20/05/25' });
-	const handleInputChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+	const [formData, setFormData] = useState({ brix: '16.0', alcoholContent: '25.0', temperature: '32', timeInterval: '56:04:01', logDate: '20/05/25' });
+	const handleInputChange = (e) => {
+		const { name, value } = e.target;
+		if (name === 'temperature') {
+			const digits = String(value).replace(/[^0-9]/g, '');
+			setFormData(prev => ({ ...prev, temperature: digits }));
+			return;
+		}
+		setFormData(prev => ({ ...prev, [name]: value }));
+	};
 	const inputBox = (label, name, value) => (
 		<div className="inputRow" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 			<label style={{ color: '#9e9e9e', fontWeight: 700, minWidth: 140 }}>{label}</label>
-			<input name={name} value={value} onChange={handleInputChange} style={{ flex: 1, maxWidth: 350, padding: '18px 16px', borderRadius: 12, border: '1px solid #eee', background: '#f6f7f7', textAlign: 'right', fontSize: 18, color: '#333' }} />
+			<input
+				name={name}
+				value={value}
+				onChange={handleInputChange}
+				type={name === 'temperature' ? 'number' : 'text'}
+				step={name === 'temperature' ? '1' : undefined}
+				min={name === 'temperature' ? '0' : undefined}
+				style={{ flex: 1, maxWidth: 350, padding: '18px 16px', borderRadius: 12, border: '1px solid #eee', background: '#f6f7f7', textAlign: 'right', fontSize: 18, color: '#333' }}
+			/>
 		</div>
 	);
+
+	// Animate panels on mount
+	useEffect(() => {
+		const root = document.querySelector('.save-record');
+		if (!root) return;
+		const panels = root.querySelectorAll('.panel');
+		panels.forEach((el, idx) => {
+			setTimeout(() => el.classList.add('enter'), idx * 70);
+		});
+	}, []);
 
 	const getNextId = () => {
 		try {
@@ -324,9 +409,31 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 			const fresh = getNextId();
 			const start = formData.logDate || formatDMY(new Date());
 			const end = addDays(start, 2);
-			const newRec = { id: fresh.str, startDate: start, endDate: end };
+			const newRec = {
+				id: fresh.str,
+				startDate: start,
+				endDate: end,
+				brix: formData.brix || 'N/A',
+				alcohol: formData.alcoholContent || 'N/A',
+				temperature: formData.temperature ? `${parseInt(formData.temperature, 10)} C` : 'N/A',
+				timeInterval: formData.timeInterval || 'N/A'
+			};
 			const updated = computeStatuses([...existing, newRec]);
 			localStorage.setItem('batches', JSON.stringify(updated));
+
+			// update seeded charts as well
+			const label = (()=>{ const d = parseDMY(start); const m = d.toLocaleString('en-US',{month:'short'}); const day = String(d.getDate()).padStart(2,'0'); return `${m}-${day}`; })();
+			const brixNum = parseFloat(formData.brix);
+			if (Number.isFinite(brixNum)) {
+				const liters = Math.max(0, Math.round(brixNum*3));
+				const sales = Math.round(liters*40);
+				const seedL = JSON.parse(localStorage.getItem('chart_liters')||'[]');
+				const seedS = JSON.parse(localStorage.getItem('chart_sales')||'[]');
+				const upL = Array.isArray(seedL)? seedL.filter(r=>r.date!==label).concat([{date:label, liters}]):[{date:label, liters}];
+				const upS = Array.isArray(seedS)? seedS.filter(r=>r.date!==label).concat([{date:label, sales}]):[{date:label, sales}];
+				localStorage.setItem('chart_liters', JSON.stringify(upL));
+				localStorage.setItem('chart_sales', JSON.stringify(upS));
+			}
 			alert(`Record saved (Batch ${fresh.str}). It will appear in the batch list.`);
 			onNavigate && onNavigate('dashboard');
 		} catch (e) {
@@ -338,16 +445,45 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 	const handleReset = () => {
 		if (window.confirm('Reset all batches and dashboard?')) {
 			localStorage.removeItem('batches');
+			// Seed charts to match the reference (fourth image)
+			const seedLiters = [
+				{ date: 'May-22', liters: 26 },
+				{ date: 'May-25', liters: 28 },
+				{ date: 'May-27', liters: 22 },
+				{ date: 'May-29', liters: 39 },
+				{ date: 'May-31', liters: 26 },
+				{ date: 'Jun-02', liters: 45 },
+				{ date: 'Jun-05', liters: 41 },
+				{ date: 'Jun-07', liters: 38 },
+				{ date: 'Jun-10', liters: 40 },
+				{ date: 'Jun-12', liters: 31 },
+				{ date: 'Jun-16', liters: 38 }
+			];
+			const seedSales = [
+				{ date: 'May-22', sales: 1500 },
+				{ date: 'May-25', sales: 1550 },
+				{ date: 'May-27', sales: 1600 },
+				{ date: 'May-29', sales: 1700 },
+				{ date: 'May-31', sales: 900 },
+				{ date: 'Jun-02', sales: 950 },
+				{ date: 'Jun-05', sales: 1600 },
+				{ date: 'Jun-07', sales: 1700 },
+				{ date: 'Jun-10', sales: 1800 },
+				{ date: 'Jun-12', sales: 1900 },
+				{ date: 'Jun-16', sales: 2000 }
+			];
+			localStorage.setItem('chart_liters', JSON.stringify(seedLiters));
+			localStorage.setItem('chart_sales', JSON.stringify(seedSales));
 			alert('Batches reset.');
 			onNavigate && onNavigate('dashboard');
 		}
 	};
 
 	return (
-		<div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
+		<div className="save-record" style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
 			<Header title="Save New Record" onOpenMenu={onOpenMenu} />
 			<div className="detailsGrid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24, padding: 24 }}>
-				<div style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+				<div className="panel" style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 					<div style={{ fontSize: 28, fontWeight: 800, color: '#111', marginBottom: 12 }}>Production Details</div>
 					<div style={{ background: '#f1f2f4', display: 'inline-block', padding: '8px 14px', borderRadius: 10, marginBottom: 18, color: '#333', fontWeight: 700 }}>Batch Number: {nextId.str}</div>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -359,19 +495,19 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 					</div>
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<div style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Analysis</div>
 						<div style={{ color: '#333' }}>
 							Based on the input parameters, the{' '}
 							<span style={{ color: '#16a34a', fontWeight: 800 }}>tuba is ready for distillation</span>
 						</div>
 					</div>
-					<div style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Production Forecast</div>
 						<div style={{ color: '#333' }}>Estimated Volume: <b style={{ color: '#16a34a' }}>18.6 L</b></div>
 						<div style={{ color: '#333' }}>Estimated Profit: <b style={{ color: '#16a34a' }}>₱4, 092.00</b></div>
 					</div>
-					<div style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Fermentation Timeline</div>
 						<div style={{ color: '#333' }}>Start Date: <b style={{ color: '#16a34a' }}>{formData.logDate}</b></div>
 						<div style={{ color: '#333' }}>End Date: <b style={{ color: '#16a34a' }}>{addDays(formData.logDate, 2)}</b></div>
@@ -379,10 +515,10 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 				</div>
 			</div>
 			<div style={{ display: 'flex', justifyContent: 'center', gap: 12, margin: '24px 0 40px' }}>
-				<button onClick={handleSave} style={{ background: '#16a34a', color: '#fff', fontWeight: 800, border: 'none', padding: '16px 42px', borderRadius: 50, fontSize: 18, cursor: 'pointer' }}>
+				<button className="pressable" onClick={handleSave} style={{ background: '#16a34a', color: '#fff', fontWeight: 800, border: 'none', padding: '16px 42px', borderRadius: 50, fontSize: 18, cursor: 'pointer' }}>
 					Save Record
 				</button>
-				<button onClick={handleReset} style={{ background: '#ffffff', color: '#333', fontWeight: 700, border: '2px solid #e5e7eb', padding: '16px 24px', borderRadius: 50, fontSize: 16, cursor: 'pointer' }}>
+				<button className="pressable" onClick={handleReset} style={{ background: '#ffffff', color: '#333', fontWeight: 700, border: '2px solid #e5e7eb', padding: '16px 24px', borderRadius: 50, fontSize: 16, cursor: 'pointer' }}>
 					Reset
 				</button>
 			</div>
@@ -391,46 +527,98 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 };
 
 const RecordSummary = ({ onOpenMenu }) => {
+	// Load batches similar to Dashboard
+	const defaultBatches = useMemo(() => ([
+		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', brix: 16.0, alcohol: 25.0, temperature: '32.0 C', timeInterval: '56:04:01' },
+		{ id: '002', startDate: '22/05/25', endDate: '25/05/25' },
+		{ id: '003', startDate: '25/05/25', endDate: '28/05/25' },
+		{ id: '004', startDate: '27/05/25', endDate: '30/05/25' },
+		{ id: '005', startDate: '30/05/25', endDate: '02/06/25' }
+	]), []);
+	const batchesRaw = useMemo(() => {
+		try {
+			const saved = JSON.parse(localStorage.getItem('batches') || 'null');
+			return saved && Array.isArray(saved) && saved.length ? saved : defaultBatches;
+		} catch { return defaultBatches; }
+	}, [defaultBatches]);
+	const batches = useMemo(() => computeStatuses(batchesRaw), [batchesRaw]);
+	const sortedBatches = useMemo(() =>
+		[...batches].sort((a,b) => (parseInt(a.id,10)||0) - (parseInt(b.id,10)||0)),
+		[batches]
+	);
+	const [selectedId, setSelectedId] = useState(sortedBatches[0]?.id || '');
+	useEffect(()=>{ if (sortedBatches.length && !sortedBatches.find(b=>b.id===selectedId)) setSelectedId(sortedBatches[0].id); }, [sortedBatches]);
+	const selected = useMemo(() => sortedBatches.find(b => b.id === selectedId) || sortedBatches[0] || {}, [sortedBatches, selectedId]);
+
+	// Animate panels on mount
+	useEffect(() => {
+		const root = document.querySelector('.record-summary-page');
+		if (!root) return;
+		const panels = root.querySelectorAll('.panel');
+		panels.forEach((el, idx) => {
+			setTimeout(() => el.classList.add('enter'), idx * 70);
+		});
+	}, [selectedId]);
+
+	const durationDays = useMemo(() => {
+		if (!selected?.startDate || !selected?.endDate) return 'N/A';
+		const ms = parseDMY(selected.endDate) - parseDMY(selected.startDate);
+		const d = Math.round(ms / (1000 * 60 * 60 * 24));
+		return `${d} day${d === 1 ? '' : 's'}`;
+	}, [selected]);
+	const analysisText = selected?.status === 'Ready' ? 'Based on the input parameters, the tuba is ready for distillation.' : 'Batch is queued; more data is needed before distillation.';
+
 	return (
-		<div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
+		<div className="record-summary-page" style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
 			<Header title="Record Summary" onOpenMenu={onOpenMenu} />
 			<div className="summaryGrid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24, padding: 24 }}>
-				<div style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-					<div style={{ fontSize: 36, fontWeight: 800, color: '#111', marginBottom: 12 }}>Batch 001</div>
-					{['Brix (sugar):|16.0', 'Alcohol Content:|25.0', 'Temperature:|32.0 C', 'Time Interval|56:04:01', 'Log Date|20/05/25'].map((row, i) => {
-						const [label, val] = row.split('|');
-						return (
-							<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 16px', border: '1px solid #eee', borderRadius: 12, background: '#fff', marginBottom: 14 }}>
-								<div style={{ color: '#111', fontWeight: 800 }}>{label}</div>
-								<div style={{ color: '#111', fontWeight: 800, fontSize: 18 }}>{val}</div>
-							</div>
-						);
-					})}
+				<div className="panel" style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+						<div style={{ fontSize: 28, fontWeight: 800, color: '#111' }}>Batch {selected?.id || '—'}</div>
+						<select value={selectedId} onChange={(e)=>setSelectedId(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+							{sortedBatches.map(b => {
+								const label = String(parseInt(b.id,10)||0).toString().padStart(3,'0');
+								return <option key={b.id} value={b.id}>{label}</option>;
+							})}
+						</select>
+					</div>
+					{[
+						{ label: 'Brix (sugar):', value: selected?.brix ?? 'N/A' },
+						{ label: 'Alcohol Content:', value: selected?.alcohol ?? 'N/A' },
+						{ label: 'Temperature:', value: selected?.temperature ?? 'N/A' },
+						{ label: 'Time Interval', value: selected?.timeInterval ?? 'N/A' },
+						{ label: 'Log Date', value: selected?.startDate ?? 'N/A' },
+					].map((row, i) => (
+						<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 16px', border: '1px solid #eee', borderRadius: 12, background: '#fff', marginBottom: 14 }}>
+							<div style={{ color: '#111', fontWeight: 800 }}>{row.label}</div>
+							<div style={{ color: '#111', fontWeight: 800, fontSize: 18 }}>{row.value}</div>
+						</div>
+					))}
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<div style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Analysis</div>
 						<div style={{ display: 'flex', gap: 12 }}>
 							<div style={{ width: 26, height: 26, background: '#16a34a', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>✓</div>
-							<div style={{ color: '#333' }}>Based on the input parameters, the tuba is ready for distillation.</div>
+							<div style={{ color: '#333' }}>{analysisText}</div>
 						</div>
 					</div>
-					<div style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Production Summary</div>
 						<div style={{
 							display: 'grid', gridTemplateColumns: '1fr 1fr', border: '2px solid #cfe3cf', borderRadius: 12, overflow: 'hidden', background: '#eaf6ea'
 						}}>
 							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf' }}>Batch</div>
-							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>001</div>
+							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>{selected?.id || '—'}</div>
 							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf' }}>Total Tuba Produced</div>
-							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>18.5 L</div>
+							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>{selected?.produced ?? 'N/A'}</div>
 							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf' }}>Duration</div>
-							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>2 days<div style={{ fontSize: 11, color: '#8a8f98', marginTop: 6 }}>Start Date 20/05/25<br/>End Date 20/05/27</div></div>
+							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>
+								{durationDays}
+								<div style={{ fontSize: 11, color: '#8a8f98', marginTop: 6 }}>Start Date {selected?.startDate || '—'}<br/>End Date {selected?.endDate || '—'}</div>
+							</div>
 							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf' }}>Predicted Income</div>
-							<div style={{ padding: 14, background: '#fff', color: '#16a34a', fontWeight: 900 }}>₱2,220.00</div>
-						</div>
-						<div style={{ marginTop: 8, color: '#9e9e9e', fontSize: 12 }}>
-							2% higher than last batch • <button style={{ fontSize: 11, color: '#666', border: '1px solid #cfe3cf', background: '#f7faf7', padding: '4px 8px', borderRadius: 6, cursor: 'pointer' }}>View Analytics</button>
+							<div style={{ padding: 14, background: '#fff', color: '#16a34a', fontWeight: 900 }}>{selected?.predictedIncome ?? 'N/A'}</div>
 						</div>
 					</div>
 				</div>
