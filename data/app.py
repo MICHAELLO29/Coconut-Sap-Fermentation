@@ -3,7 +3,7 @@ from flask_cors import CORS
 import sqlite3
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}}) # Allows our react app (make sure the react dev server is running on this port)
 
 def get_db_connection():
     conn = sqlite3.connect("ispindel.db")
