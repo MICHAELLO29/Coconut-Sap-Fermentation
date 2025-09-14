@@ -14,16 +14,20 @@ CREATE TABLE IF NOT EXISTS batches (
 """)
 
 cur.execute("""
-CREATE TABLE IF NOT EXISTS readings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            batch_id TEXT,
-            angle REAL,
-            temperature REAL,
-            battery REAL,
-            gravity REAL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (batch_id) REFERENCES batches(batch_id)
+CREATE TABLE readings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id TEXT NOT NULL,
+    gravity REAL,
+    temperature REAL,
+    battery REAL,
+    angle REAL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    brix REAL GENERATED ALWAYS AS (((182.4601 * gravity - 775.6821) * gravity + 1262.7794) * gravity - 669.5622) STORED
 ) 
+""")
+
+cur.execute("""
+ALTER TABLE readings ADD COLUMN brix REAL;         
 """)
 
 conn.commit()
