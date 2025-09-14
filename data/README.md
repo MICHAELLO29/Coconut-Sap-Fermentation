@@ -2,13 +2,14 @@ This section contains the data management tools that were used in order to acces
 
 ## Prerequisites
 
-- Python environment with Flask 3.0.3+
-
+- Flask (3.0.3+)
+- flask-cors (6.0.1+)
 - iSpindel is set to HTTP Post towards localhost:5000\ispindel
 
 Check versions:
 ```
 pip show flask
+pip show flask-cors
 ```
 
 ## Setup and Run
@@ -16,6 +17,7 @@ pip show flask
 1) Install dependencies in your Python environment(if not yet installed):
 ```
 pip install flask
+pip install flask-cors
 ```
 
 2) Navigate to the app folder:
