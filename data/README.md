@@ -23,7 +23,7 @@ pip install flask
 cd data\
 ```
 
-3) Create the .db file via SQLite:
+3) Create the .db file by running the SQLite python script:
 ```
 python sqlite.py
 ```
@@ -35,7 +35,7 @@ python app.py
 
 ## Additional Information for testing
 
-This segment is to test the database by using curl method to insert dummy data.
+This segment is to test the database by using curl method to insert dummy data. Make sure flask server (app.py) is running when you do this procedure.
 
 1) Run the test python script to insert dummy data:
 ```
