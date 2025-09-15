@@ -41,8 +41,44 @@ const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
     brix: '',
     temperature: '',
     ph: '',
-    liter: ''
+    liter: '',
+    battery: '',
+    timestamp: ''
   });
+
+  const [batchId, setBatchId] = useState(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch("http://127.0.0.1:5000/preview_reading")
+        .then(res => res.json())
+        .then(data => {
+          if (data.angle) {
+            setFormData(prev => ({
+              ...prev,
+              angle: data.angle != null ? String(data.angle) : "",
+              sg: data.gravity != null ? String(data.gravity) : "",
+              brix: data.brix != null ? String(data.brix) : "",
+              temperature: data.temperature != null ? String(data.temperature) : "",
+              ph: prev.ph, // No values yet (No sensor)
+              battery: data.battery != null ? String(data.battery) : "",
+              timestamp: data.timestamp
+            }));
+          }
+        })
+        .catch(err => console.error("Preview fetch error:", err));
+    }, 3000); // every 3 sec
+
+    return () => clearInterval(interval); // cleanup on unmount
+  }, []);
+
+  // Fetch next batch ID when page loads
+  useEffect(() => {
+    fetch("http://localhost:5000/next_batch_id")
+      .then(res => res.json())
+      .then(data => setBatchId(data.next_batch_id))
+      .catch(err => console.error("Batch ID fetch error:", err));
+  }, []);
 
   // Autosave draft
   useEffect(() => {
@@ -65,11 +101,40 @@ const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
     }));
   };
 
-  const handleConfirm = () => {
-    console.log("Confirming batch with:", formData);
+  // Confirm & Start monitoring the batch
+  const handleConfirm = async () => {
+    try {
+      const res = await fetch("http://127.0.0.1:5000/create_batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start_date: formattedStart,
+          end_date: formattedEnd,
+          liter: formData.liter
+        })
+      });
+
+      const data = await res.json();
+      console.log("Batch created:", data);
+
+      if (data.batch_id) {
+        alert(`Batch ${data.batch_id} started`);
+        onNavigate("fermentation-monitoring");
+      }
+    } catch (error) {
+      console.error("Error creating batch:", error);
+      alert("Failed to create batch. Please try again.");
+    }
   };
 
-  const hasValue = (val) => val && val.trim() !== "";
+    
+  
+  const hasValue = (val) => {
+  if (val === null || val === undefined) return false;
+  if (typeof val === "number") return !isNaN(val);
+  if (typeof val === "string") return val.trim() !== "";
+  return false;
+};
 
   // Dates
   const today = useMemo(() => new Date(), []);
@@ -137,7 +202,7 @@ const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
           <div className="cb-card" style={{ background: '#ffffff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.06)', padding: 18, border: '1px solid #e5e7eb' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div style={{ fontSize: 18, fontWeight: 900, color: '#111' }}>Confirm Parameters</div>
-              <div style={{ color: '#111', fontWeight: 800 }}>Batch ID: <span style={{ color: '#16a34a' }}>001</span></div>
+              <div style={{ color: '#111', fontWeight: 800 }}>Batch ID: <span style={{ color: '#16a34a' }}>{batchId !== null ? batchId : "Loading..."}</span></div>
             </div>
 
             {/* Completion meter */}
