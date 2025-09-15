@@ -535,20 +535,48 @@ const Dashboard = ({ onOpenMenu }) => {
 			<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 				<label style={{ color: '#6b7280', fontWeight: 800, minWidth: 140 }}>{label}</label>
 				<div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, maxWidth: 350 }}>
-					<button type="button" onClick={() => stepField(name, -1)} className="ux-pressable" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>-</button>
-					<input
-						name={name}
-						value={value}
-						onChange={handleInputChange}
-						type={'text'}
-						step={name === 'temperature' ? '1' : undefined}
-						min={name === 'temperature' ? '0' : undefined}
-						ref={helper && helper.valid===false && !firstInvalidRef.current ? firstInvalidRef : undefined}
-						aria-invalid={helper ? helper.valid===false : undefined}
-						className={name === 'temperature' ? 'ux-focus no-spin' : 'ux-focus'}
-						style={{ flex: 1, padding: '18px 16px', borderRadius: 12, border: '1px solid #eee', background: '#f6f7f7', textAlign: 'right', fontSize: 18, color: '#333' }}
-					/>
-					<button type="button" onClick={() => stepField(name, 1)} className="ux-pressable" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>+</button>
+					{name === 'logDate' ? (
+						<input
+							name="logDate"
+							type="date"
+							value={(function(){
+								try {
+									const d = parseDMY(value || formatDMY(new Date()));
+									const y = d.getFullYear();
+									const m = String(d.getMonth()+1).padStart(2,'0');
+									const dd = String(d.getDate()).padStart(2,'0');
+									return `${y}-${m}-${dd}`;
+								} catch { return ''; }
+							})()}
+							onChange={(e)=>{
+								const iso = e.target.value; // YYYY-MM-DD
+								if (!iso) return;
+								const [Y,M,D] = iso.split('-');
+								const yy = String(Y).slice(-2);
+								const dmy = `${D}/${M}/${yy}`;
+								setFormData(prev=>({ ...prev, logDate: dmy }));
+							}}
+							className="ux-focus"
+							style={{ flex: 1, padding: '14px 12px', borderRadius: 12, border: '1px solid #e5e7eb', background: '#f6f7f7', textAlign: 'right', fontSize: 16, color: '#333' }}
+						/>
+					) : (
+						<>
+							<button type="button" onClick={() => stepField(name, -1)} className="ux-pressable" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>-</button>
+							<input
+								name={name}
+								value={value}
+								onChange={handleInputChange}
+								type={'text'}
+								step={name === 'temperature' ? '1' : undefined}
+								min={name === 'temperature' ? '0' : undefined}
+								ref={helper && helper.valid===false && !firstInvalidRef.current ? firstInvalidRef : undefined}
+								aria-invalid={helper ? helper.valid===false : undefined}
+								className={name === 'temperature' ? 'ux-focus no-spin' : 'ux-focus'}
+								style={{ flex: 1, padding: '18px 16px', borderRadius: 12, border: '1px solid #eee', background: '#f6f7f7', textAlign: 'right', fontSize: 18, color: '#333' }}
+							/>
+							<button type="button" onClick={() => stepField(name, 1)} className="ux-pressable" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>+</button>
+						</>
+					)}
 				</div>
 			</div>
 			{helper && (
