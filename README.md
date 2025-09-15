@@ -1,6 +1,6 @@
-# Coconut Sap Fermentation Dashboard
+# Coconut Sap Fermentation Center
 
-A web application for monitoring and analyzing coconut sap fermentation (Lambanog) with a focus on visual analytics and simple operations. It includes:
+A web application for monitoring and analyzing coconut sap fermentation (lambanog), now integrated with sensor-ready workflows and a streamlined, informative dashboard.
 
 - Dashboard with batches, statuses, and charts
 - Save New Record with analysis, forecast, and timeline
@@ -8,7 +8,7 @@ A web application for monitoring and analyzing coconut sap fermentation (Lambano
 - Real-time Fermentation Monitoring graph
 - Slide-out side menu navigation
 
-This app is built with React (Create React App) and Recharts. It is designed to match the provided UI mockups and implements a “single active batch” monitoring rule.
+This app is built with React (Create React App) and Recharts. It implements a clear, at‑a‑glance dashboard and supports local storage plus optional Flask API integration.
 
 ## Project Structure
 
@@ -24,22 +24,31 @@ Coconut-Sap-Fermentation/
 └─ README.md                    # You are here
 ```
 
-## Features
+## Features (Updated)
 
 - Dashboard
   - Live clock and date
-  - Batch list with “End Date” and N/A for queued batches
-  - Charts: Total Liters and Predicted Sales
-  - Day/Month/Year selectors per chart (independent)
+  - KPI cards: Total Batches, Batches Ready, Batches In Progress (+ concise subtext)
+  - Quick Insights row: Most Recent Record, Next Estimated Completion, Current Time
+  - Batch List with clear columns and highlighted status
+  - Chart: Total Liters of Lambanog Made (full-width) with Day/Month/Year aggregation
+
 - Save New Record
-  - Auto-increment batch numbers (starts at 001)
-  - Saves to localStorage and updates Dashboard
-  - Reset button clears batches and resets Dashboard
+  - Auto-incrementing Batch Number
+  - Real-time Analysis: updates readiness as you type (thresholds: Brix ≥ 15, Alcohol ≥ 20, Temp 28–35°C; configurable)
+  - New Produced Liters field (manual): updates the liters chart without showing in the batch table
+  - Estimated completion now uses a 3–5 day window (default +4 days)
+  - Green-themed toast on save and a confirm modal on reset (no native browser alerts)
+
 - Record Summary
-  - Styled production summary grid
+  - Clean per-batch details and production summary grid
+
 - Fermentation Monitoring
-  - Real-time styled line chart (demo data)
-- Responsive layout and subtle animations
+  - Real-time styled line chart (demo data), ready to connect to sensor feed
+
+- General UX
+  - Slide-out side menu
+  - Subtle animations and responsive layout
 
 ## Prerequisites
 
@@ -75,17 +84,29 @@ This opens http://localhost:3000
 npm run build
 ```
 
-## Usage Notes
+## Usage Notes (Updated)
 
 - Navigation: click the hamburger icon (top-right) to open the side menu, then select a page.
-- Single Active Batch: only the earliest batch by Start Date is marked as Ready; others show N/A.
+- Single Active Batch (current rule): only the earliest batch by Start Date is marked Ready; others show N/A. You can switch to a time-based readiness rule later if desired.
 - Save New Record:
   - “Batch Number” auto-increments based on the highest existing ID in localStorage.
-  - Log Date is used as Start Date; End Date auto-calculates (+2 days by default).
-  - “Reset” clears saved batches and returns you to the Dashboard.
+  - Log Date is used as Start Date; End Date auto-calculates (+4 days by default to match 3–5 day target).
+  - Save shows a green toast then navigates to the Dashboard after ~1.2s.
+  - Reset opens a confirm modal; after confirming, a green toast appears.
 - Charts:
   - Each chart’s Day/Month/Year selector works independently.
   - In Month/Year, values aggregate by month for multi-point lines.
+
+## Flask API Integration (Optional)
+
+- Base URL is configurable via `REACT_APP_API_BASE` (defaults to `http://localhost:5000`).
+- Dashboard prefers `GET /api/batches`; falls back to `localStorage('batches')` if API is offline.
+- Save New Record posts to `POST /api/batches` (best-effort) and always updates localStorage for instant UI feedback.
+
+Example (Windows PowerShell):
+```
+$env:REACT_APP_API_BASE="http://localhost:5000"; npm start
+```
 
 ## Troubleshooting
 

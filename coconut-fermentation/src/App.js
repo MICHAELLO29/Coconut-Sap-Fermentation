@@ -1,5 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+
+// Backend API base URL: override via REACT_APP_API_BASE, defaults to Flask on :5000
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
 
 // Helpers
 const parseDMY = (d) => {
@@ -81,8 +84,7 @@ const Header = ({ title, rightContent, onOpenMenu }) => (
 	}}>
 		<div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
 			<div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-				<div style={{ width: 20, height: 30, background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)', borderRadius: '50% 50% 0 0', transform: 'rotate(-15deg)' }} />
-				<div style={{ width: 20, height: 30, background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)', borderRadius: '50% 50% 0 0', transform: 'rotate(15deg)' }} />
+				<img src="/DashboardIcon.png" alt="Logo" style={{ width: 40, height: 40 }} />
 			</div>
 			<h1 style={{ color: '#4CAF50', fontSize: 28, fontWeight: 700, margin: 0 }}>{title}</h1>
 		</div>
@@ -99,6 +101,9 @@ const Header = ({ title, rightContent, onOpenMenu }) => (
 
 const Dashboard = ({ onOpenMenu }) => {
 	const [now, setNow] = useState(new Date());
+	// Trigger re-computation from API/localStorage periodically and on storage events
+	const [refreshTick, setRefreshTick] = useState(0);
+	const [apiBatches, setApiBatches] = useState(null);
 	// Load batches from localStorage or fallback
 	const defaultBatches = useMemo(() => ([
 		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', phLevel: 5.6, brix: 16.0, alcohol: 25.0 },
@@ -109,16 +114,49 @@ const Dashboard = ({ onOpenMenu }) => {
 	]), []);
 	const batchesRaw = useMemo(() => {
 		try {
+			// Prefer API batches when available
+			if (Array.isArray(apiBatches) && apiBatches.length) return apiBatches;
 			const saved = JSON.parse(localStorage.getItem('batches') || 'null');
 			return saved && Array.isArray(saved) && saved.length ? saved : defaultBatches;
 		} catch { return defaultBatches; }
-	}, [defaultBatches]);
+	}, [defaultBatches, refreshTick, apiBatches]);
 	const batches = useMemo(() => computeStatuses(batchesRaw), [batchesRaw]);
 
 	useEffect(() => {
 		const t = setInterval(() => setNow(new Date()), 1000);
 		return () => clearInterval(t);
 	}, []);
+
+	// Periodically refresh and listen for external updates (e.g., API save, other tabs)
+	useEffect(() => {
+		const poll = setInterval(() => setRefreshTick((v) => v + 1), 3000);
+		const onStorage = (e) => {
+			if (!e || !e.key || e.key === 'batches' || e.key.startsWith('chart_')) setRefreshTick((v) => v + 1);
+		};
+		window.addEventListener('storage', onStorage);
+		return () => {
+			clearInterval(poll);
+			window.removeEventListener('storage', onStorage);
+		};
+	}, []);
+
+	// Fetch batches from Flask API with graceful fallback
+	useEffect(() => {
+		let aborted = false;
+		const fetchBatches = async () => {
+			try {
+				const res = await fetch(`${API_BASE}/api/batches`);
+				if (!res.ok) throw new Error('Bad response');
+				const data = await res.json();
+				if (!aborted) setApiBatches(Array.isArray(data) ? data : null);
+			} catch {
+				if (!aborted) setApiBatches(null);
+			}
+		};
+		fetchBatches();
+		const id = setInterval(fetchBatches, 5000);
+		return () => { aborted = true; clearInterval(id); };
+	}, [refreshTick]);
 
 	useEffect(() => {
 		// Inject responsive CSS + animations once
@@ -157,6 +195,35 @@ const Dashboard = ({ onOpenMenu }) => {
 			<div style={{ fontSize: 14, color: '#9e9e9e' }}>{now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
 		</div>
 	);
+
+	// Quick insight metrics for an at-a-glance dashboard
+	const readyCount = useMemo(() => batches.filter(b => b.status === 'Ready').length, [batches]);
+	const notReadyCount = useMemo(() => Math.max(0, (batches?.length || 0) - readyCount), [batches, readyCount]);
+	const nextCompletion = useMemo(() => {
+		const today = new Date();
+		const futureDates = (batches || [])
+			.map(b => b?.endDate ? parseDMY(b.endDate) : null)
+			.filter((d) => d && d >= new Date(today.getFullYear(), today.getMonth(), today.getDate()));
+		if (futureDates.length) {
+			return new Date(Math.min.apply(null, futureDates));
+		}
+		// If no future completions, show the most recent past completion if available
+		const pastDates = (batches || [])
+			.map(b => b?.endDate ? parseDMY(b.endDate) : null)
+			.filter((d) => d && d < today);
+		if (pastDates.length) {
+			return new Date(Math.max.apply(null, pastDates));
+		}
+		return null;
+	}, [batches, now]);
+	const lastRecordDate = useMemo(() => {
+		const dates = (batches || [])
+			.map(b => b?.startDate ? parseDMY(b.startDate) : null)
+			.filter(Boolean);
+		if (!dates.length) return null;
+		const max = new Date(Math.max.apply(null, dates));
+		return max;
+	}, [batches, refreshTick]);
 
 	// Build chart base data from batches
 	const toLabel = (dmy) => {
@@ -219,11 +286,9 @@ const Dashboard = ({ onOpenMenu }) => {
 	}, [batches]);
 
 	const lambanogData = baseSeries.map(r => ({ date: r.date, liters: r.liters }));
-	const salesData = baseSeries.map(r => ({ date: r.date, sales: r.sales }));
 
-	// Day / Month / Year selector for charts
+	// Day / Month / Year selector for chart
 	const [litersRange, setLitersRange] = useState('day');
-	const [salesRange, setSalesRange] = useState('day');
 	const aggregateBy = (rows, valueKey, unit) => {
 		if (unit === 'day') return rows;
 		// Helper: month aggregation
@@ -248,26 +313,46 @@ const Dashboard = ({ onOpenMenu }) => {
 		return rows;
 	};
 	const litersChartData = useMemo(() => aggregateBy(lambanogData, 'liters', litersRange), [lambanogData, litersRange]);
-	const salesChartAgg = useMemo(() => aggregateBy(salesData, 'sales', salesRange), [salesData, salesRange]);
 
 	return (
 		<div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
-			<Header title="Dashboard" rightContent={timeEl} onOpenMenu={onOpenMenu} />
+			<Header title="Coconut Sap Fermentation Center" rightContent={timeEl} onOpenMenu={onOpenMenu} />
 
 			<div className="grid-3" style={{
-				display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, margin: 20, marginBottom: 30
+				display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, margin: 20, marginTop: 10, marginBottom: 20
 			}}>
 				<div className="card" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #333' }}>
-					<h3 style={{ color: '#333', fontSize: 16, fontWeight: 600, marginBottom: 15 }}>Total Batches Being Monitored</h3>
-					<div style={{ fontSize: 48, fontWeight: 700, color: '#333' }}>{batches.length}</div>
+					<h3 style={{ color: '#333', fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Total Batches</h3>
+					<div style={{ fontSize: 40, fontWeight: 900, color: '#111', lineHeight: 1 }}>{batches.length}</div>
+					<div style={{ fontSize: 12, color: '#6b7280', marginTop: 8 }}>Last record {lastRecordDate ? lastRecordDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) : 'N/A'}</div>
 				</div>
 				<div className="card" style={{ background: '#e8f5e8', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #4CAF50' }}>
-					<h3 style={{ color: '#333', fontSize: 16, fontWeight: 600, marginBottom: 15 }}>Batches Ready</h3>
-					<div style={{ fontSize: 48, fontWeight: 700, color: '#4CAF50' }}>{batches.filter(b => b.status === 'Ready').length}</div>
+					<h3 style={{ color: '#1b5e20', fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Batches Ready</h3>
+					<div style={{ fontSize: 40, fontWeight: 900, color: '#16a34a', lineHeight: 1 }}>{readyCount}</div>
+					<div style={{ fontSize: 12, color: '#1b5e20', marginTop: 8 }}>Next completion {nextCompletion ? nextCompletion.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) : 'N/A'}</div>
 				</div>
 				<div className="card" style={{ background: '#ffebee', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #f44336' }}>
-					<h3 style={{ color: '#333', fontSize: 16, fontWeight: 600, marginBottom: 15 }}>Batches Not Ready</h3>
-					<div style={{ fontSize: 48, fontWeight: 700, color: '#f44336' }}>{batches.filter(b => b.status !== 'Ready').length}</div>
+					<h3 style={{ color: '#7f1d1d', fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Batches In Progress</h3>
+					<div style={{ fontSize: 40, fontWeight: 900, color: '#e11d48', lineHeight: 1 }}>{notReadyCount}</div>
+					<div style={{ fontSize: 12, color: '#7f1d1d', marginTop: 8 }}>Monitoring for optimal pH and Brix</div>
+				</div>
+			</div>
+
+			{/* Quick Insights */}
+			<div className="card" style={{ background: '#ffffff', padding: 18, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', margin: '0 20px 10px', border: '1px solid #e5e7eb' }}>
+				<div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+					<div style={{ minWidth: 220 }}>
+						<div style={{ fontSize: 12, color: '#6b7280', fontWeight: 800 }}>Most Recent Record</div>
+						<div style={{ fontSize: 16, fontWeight: 900, color: '#111' }}>{lastRecordDate ? lastRecordDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</div>
+					</div>
+					<div style={{ minWidth: 220 }}>
+						<div style={{ fontSize: 12, color: '#6b7280', fontWeight: 800 }}>Next Estimated Completion</div>
+						<div style={{ fontSize: 16, fontWeight: 900, color: '#111' }}>{nextCompletion ? nextCompletion.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</div>
+					</div>
+					<div style={{ minWidth: 220 }}>
+						<div style={{ fontSize: 12, color: '#6b7280', fontWeight: 800 }}>Current Time</div>
+						<div style={{ fontSize: 16, fontWeight: 900, color: '#111' }}>{now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
+					</div>
 				</div>
 			</div>
 
@@ -304,48 +389,25 @@ const Dashboard = ({ onOpenMenu }) => {
 				</div>
 			</div>
 
-			<div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, margin: 20, marginBottom: 30 }}>
-				<div className="chartCard" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-						<h3 style={{ color: '#333', fontSize: 18, fontWeight: 600 }}>Total Liters of Lambanog Made</h3>
-						<select value={litersRange} onChange={(e) => setLitersRange(e.target.value)} style={{ fontSize: 12, color: '#333', border: '1px solid #e0e0e0', borderRadius: 6, padding: '4px 8px', background: '#fff' }}>
-							<option value="day">Day</option>
-							<option value="month">Month</option>
-							<option value="year">Year</option>
-						</select>
-					</div>
-					<div style={{ width: '100%', height: 300 }}>
-						<ResponsiveContainer width="100%" height="100%">
-							<BarChart data={litersChartData}>
-								<CartesianGrid strokeDasharray="3 3" />
-								<XAxis dataKey="date" />
-								<YAxis />
-								<Tooltip />
-								<Bar dataKey="liters" fill="#4CAF50" />
-							</BarChart>
-						</ResponsiveContainer>
-					</div>
+			<div className="chartCard" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', margin: 20, marginBottom: 30 }}>
+				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+					<h3 style={{ color: '#333', fontSize: 18, fontWeight: 600 }}>Total Liters of Lambanog Made</h3>
+					<select value={litersRange} onChange={(e) => setLitersRange(e.target.value)} style={{ fontSize: 12, color: '#333', border: '1px solid #e0e0e0', borderRadius: 6, padding: '4px 8px', background: '#fff' }}>
+						<option value="day">Day</option>
+						<option value="month">Month</option>
+						<option value="year">Year</option>
+					</select>
 				</div>
-				<div className="chartCard" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-						<h3 style={{ color: '#333', fontSize: 18, fontWeight: 600 }}>Predicted Sales Trends</h3>
-						<select value={salesRange} onChange={(e) => setSalesRange(e.target.value)} style={{ fontSize: 12, color: '#333', border: '1px solid #e0e0e0', borderRadius: 6, padding: '4px 8px', background: '#fff' }}>
-							<option value="day">Day</option>
-							<option value="month">Month</option>
-							<option value="year">Year</option>
-						</select>
-					</div>
-					<div style={{ width: '100%', height: 300 }}>
-						<ResponsiveContainer width="100%" height="100%">
-							<LineChart data={salesChartAgg}>
-								<CartesianGrid strokeDasharray="3 3" />
-								<XAxis dataKey="date" />
-								<YAxis />
-								<Tooltip />
-								<Line type="monotone" dataKey="sales" stroke="#4CAF50" strokeWidth={2} />
-							</LineChart>
-						</ResponsiveContainer>
-					</div>
+				<div style={{ width: '100%', height: 400 }}>
+					<ResponsiveContainer width="100%" height="100%">
+						<BarChart data={litersChartData}>
+							<CartesianGrid strokeDasharray="3 3" />
+							<XAxis dataKey="date" />
+							<YAxis />
+							<Tooltip />
+							<Bar dataKey="liters" fill="#4CAF50" />
+						</BarChart>
+					</ResponsiveContainer>
 				</div>
 			</div>
 		</div>
@@ -353,12 +415,25 @@ const Dashboard = ({ onOpenMenu }) => {
 };
 
 const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
-	const [formData, setFormData] = useState({ brix: '16.0', alcoholContent: '25.0', temperature: '32', timeInterval: '56:04:01', logDate: '20/05/25' });
+	const [formData, setFormData] = useState({ brix: '16.0', alcoholContent: '25.0', temperature: '32', producedLiters: '', timeInterval: '56:04:01', logDate: '20/05/25' });
+	const [toast, setToast] = useState({ open: false, message: '', tone: 'success' });
+	const [confirmOpen, setConfirmOpen] = useState(false);
+	const confirmActionRef = useRef(null);
+	const showToast = (message, tone = 'success') => {
+		setToast({ open: true, message, tone });
+		setTimeout(() => setToast(prev => ({ ...prev, open: false })), 2500);
+	};
 	const handleInputChange = (e) => {
 		const { name, value } = e.target;
 		if (name === 'temperature') {
 			const digits = String(value).replace(/[^0-9]/g, '');
 			setFormData(prev => ({ ...prev, temperature: digits }));
+			return;
+		}
+		if (name === 'producedLiters') {
+			// allow decimals; sanitize to digits and one dot
+			const cleaned = String(value).replace(/[^0-9.]/g, '').replace(/(\..*)\./, '$1');
+			setFormData(prev => ({ ...prev, producedLiters: cleaned }));
 			return;
 		}
 		setFormData(prev => ({ ...prev, [name]: value }));
@@ -377,6 +452,26 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 			/>
 		</div>
 	);
+
+	// Real-time analysis based on current inputs (simple rule-of-thumb)
+	const analysis = useMemo(() => {
+		const brix = parseFloat(formData.brix);
+		const alcohol = parseFloat(formData.alcoholContent);
+		const temp = parseFloat(formData.temperature);
+		const okBrix = Number.isFinite(brix) && brix >= 15; // target >= 15
+		const okAlcohol = Number.isFinite(alcohol) && alcohol >= 20; // target >= 20
+		const okTemp = Number.isFinite(temp) && temp >= 28 && temp <= 35; // optimal window
+		const ready = okBrix && okAlcohol && okTemp;
+		const reasons = [];
+		if (!okBrix) reasons.push('Brix below target');
+		if (!okAlcohol) reasons.push('Alcohol below target');
+		if (!okTemp) reasons.push('Temperature out of range');
+		return {
+			ready,
+			statusText: ready ? 'tuba is ready for distillation' : 'tuba is not yet ready for distillation',
+			reasons
+		};
+	}, [formData]);
 
 	// Animate panels on mount
 	useEffect(() => {
@@ -403,12 +498,13 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 	};
 	const nextId = getNextId();
 
-	const handleSave = () => {
+	const handleSave = async () => {
 		try {
 			const existing = JSON.parse(localStorage.getItem('batches') || '[]');
 			const fresh = getNextId();
 			const start = formData.logDate || formatDMY(new Date());
-			const end = addDays(start, 2);
+			// Estimate completion within 3–5 days. Use 4 days as midpoint.
+			const end = addDays(start, 4);
 			const newRec = {
 				id: fresh.str,
 				startDate: start,
@@ -416,34 +512,45 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 				brix: formData.brix || 'N/A',
 				alcohol: formData.alcoholContent || 'N/A',
 				temperature: formData.temperature ? `${parseInt(formData.temperature, 10)} C` : 'N/A',
-				timeInterval: formData.timeInterval || 'N/A'
+				timeInterval: formData.timeInterval || 'N/A',
+				produced: formData.producedLiters ? `${parseFloat(formData.producedLiters)} L` : undefined
 			};
+
+			// Attempt to persist through Flask API; fallback to localStorage if offline
+			try {
+				await fetch(`${API_BASE}/api/batches`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(newRec)
+				});
+			} catch {}
 			const updated = computeStatuses([...existing, newRec]);
 			localStorage.setItem('batches', JSON.stringify(updated));
 
-			// update seeded charts as well
+			// update liters chart based on manual Produced Liters (fallback to brix-based estimate)
 			const label = (()=>{ const d = parseDMY(start); const m = d.toLocaleString('en-US',{month:'short'}); const day = String(d.getDate()).padStart(2,'0'); return `${m}-${day}`; })();
-			const brixNum = parseFloat(formData.brix);
-			if (Number.isFinite(brixNum)) {
-				const liters = Math.max(0, Math.round(brixNum*3));
-				const sales = Math.round(liters*40);
-				const seedL = JSON.parse(localStorage.getItem('chart_liters')||'[]');
-				const seedS = JSON.parse(localStorage.getItem('chart_sales')||'[]');
-				const upL = Array.isArray(seedL)? seedL.filter(r=>r.date!==label).concat([{date:label, liters}]):[{date:label, liters}];
-				const upS = Array.isArray(seedS)? seedS.filter(r=>r.date!==label).concat([{date:label, sales}]):[{date:label, sales}];
-				localStorage.setItem('chart_liters', JSON.stringify(upL));
-				localStorage.setItem('chart_sales', JSON.stringify(upS));
+			let liters = parseFloat(formData.producedLiters);
+			if (!Number.isFinite(liters)) {
+				const brixNum = parseFloat(formData.brix);
+				if (Number.isFinite(brixNum)) liters = Math.max(0, Math.round(brixNum*3));
 			}
-			alert(`Record saved (Batch ${fresh.str}). It will appear in the batch list.`);
-			onNavigate && onNavigate('dashboard');
+			if (Number.isFinite(liters)) {
+				const seedL = JSON.parse(localStorage.getItem('chart_liters')||'[]');
+				const upL = Array.isArray(seedL)? seedL.filter(r=>r.date!==label).concat([{date:label, liters}]):[{date:label, liters}];
+				localStorage.setItem('chart_liters', JSON.stringify(upL));
+			}
+			showToast(`Record saved (Batch ${fresh.str}). It will appear in the batch list.`, 'success');
+			if (onNavigate) {
+				setTimeout(() => onNavigate('dashboard'), 1200);
+			}
 		} catch (e) {
 			console.error(e);
-			alert('Failed to save record.');
+			showToast('Failed to save record.', 'error');
 		}
 	};
 
 	const handleReset = () => {
-		if (window.confirm('Reset all batches and dashboard?')) {
+		if (false) {
 			localStorage.removeItem('batches');
 			// Seed charts to match the reference (fourth image)
 			const seedLiters = [
@@ -474,9 +581,45 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 			];
 			localStorage.setItem('chart_liters', JSON.stringify(seedLiters));
 			localStorage.setItem('chart_sales', JSON.stringify(seedSales));
-			alert('Batches reset.');
+			showToast('Batches reset.', 'success');
 			onNavigate && onNavigate('dashboard');
 		}
+		// open custom confirm
+		confirmActionRef.current = () => {
+			localStorage.removeItem('batches');
+			const seedLiters = [
+				{ date: 'May-22', liters: 26 },
+				{ date: 'May-25', liters: 28 },
+				{ date: 'May-27', liters: 22 },
+				{ date: 'May-29', liters: 39 },
+				{ date: 'May-31', liters: 26 },
+				{ date: 'Jun-02', liters: 45 },
+				{ date: 'Jun-05', liters: 41 },
+				{ date: 'Jun-07', liters: 38 },
+				{ date: 'Jun-10', liters: 40 },
+				{ date: 'Jun-12', liters: 31 },
+				{ date: 'Jun-16', liters: 38 }
+			];
+			const seedSales = [
+				{ date: 'May-22', sales: 1500 },
+				{ date: 'May-25', sales: 1550 },
+				{ date: 'May-27', sales: 1600 },
+				{ date: 'May-29', sales: 1700 },
+				{ date: 'May-31', sales: 900 },
+				{ date: 'Jun-02', sales: 950 },
+				{ date: 'Jun-05', sales: 1600 },
+				{ date: 'Jun-07', sales: 1700 },
+				{ date: 'Jun-10', sales: 1800 },
+				{ date: 'Jun-12', sales: 1900 },
+				{ date: 'Jun-16', sales: 2000 }
+			];
+			localStorage.setItem('chart_liters', JSON.stringify(seedLiters));
+			localStorage.setItem('chart_sales', JSON.stringify(seedSales));
+			showToast('Batches reset.', 'success');
+			onNavigate && onNavigate('dashboard');
+			setConfirmOpen(false);
+		};
+		setConfirmOpen(true);
 	};
 
 	return (
@@ -491,26 +634,27 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 						{inputBox('Alcohol Content', 'alcoholContent', formData.alcoholContent)}
 						{inputBox('Temperature', 'temperature', formData.temperature)}
 						{inputBox('Time Interval:', 'timeInterval', formData.timeInterval)}
+						{inputBox('Produced Liters', 'producedLiters', formData.producedLiters)}
 						{inputBox('Log Date:', 'logDate', formData.logDate)}
 					</div>
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Analysis</div>
-						<div style={{ color: '#333' }}>
-							Based on the input parameters, the{' '}
-							<span style={{ color: '#16a34a', fontWeight: 800 }}>tuba is ready for distillation</span>
+						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Real-time Analysis</div>
+						<div style={{ color: analysis.ready ? '#065f46' : '#7f1d1d', fontWeight: 800 }}>
+							Based on the input parameters, the <span style={{ color: analysis.ready ? '#16a34a' : '#e11d48' }}>{analysis.statusText}</span>
 						</div>
+						{!analysis.ready && analysis.reasons.length > 0 && (
+							<ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 18, color: '#333' }}>
+								{analysis.reasons.map((r, i) => (<li key={i}>{r}</li>))}
+							</ul>
+						)}
 					</div>
-					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Production Forecast</div>
-						<div style={{ color: '#333' }}>Estimated Volume: <b style={{ color: '#16a34a' }}>18.6 L</b></div>
-						<div style={{ color: '#333' }}>Estimated Profit: <b style={{ color: '#16a34a' }}>₱4, 092.00</b></div>
-					</div>
+					{/* Production Forecast panel removed per requirements */}
 					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Fermentation Timeline</div>
 						<div style={{ color: '#333' }}>Start Date: <b style={{ color: '#16a34a' }}>{formData.logDate}</b></div>
-						<div style={{ color: '#333' }}>End Date: <b style={{ color: '#16a34a' }}>{addDays(formData.logDate, 2)}</b></div>
+						<div style={{ color: '#333' }}>End Date: <b style={{ color: '#16a34a' }}>{addDays(formData.logDate, 4)}</b></div>
 					</div>
 				</div>
 			</div>
@@ -522,6 +666,25 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 					Reset
 				</button>
 			</div>
+			{/* Toast notification */}
+			{toast.open && (
+				<div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', background: toast.tone==='error'?'#fee2e2':'#e8f5e8', color: toast.tone==='error'?'#991b1b':'#065f46', border: `2px solid ${toast.tone==='error'?'#fecaca':'#a7f3d0'}`, padding: '12px 16px', borderRadius: 12, fontWeight: 800, boxShadow: '0 8px 18px rgba(0,0,0,0.08)', zIndex: 2000 }}>
+					{toast.message}
+				</div>
+			)}
+			{/* Confirm modal */}
+			{confirmOpen && (
+				<div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1999 }}>
+					<div style={{ background: '#ffffff', border: '2px solid #a7f3d0', borderRadius: 12, padding: 20, width: 360, boxShadow: '0 10px 28px rgba(0,0,0,0.15)' }}>
+						<div style={{ fontWeight: 900, color: '#065f46', marginBottom: 8 }}>Confirm</div>
+						<div style={{ color: '#111', marginBottom: 16 }}>Reset all batches and dashboard?</div>
+						<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+							<button onClick={() => setConfirmOpen(false)} style={{ background: '#ffffff', border: '2px solid #e5e7eb', color: '#374151', padding: '10px 16px', borderRadius: 10, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+							<button onClick={() => { if (confirmActionRef.current) confirmActionRef.current(); }} style={{ background: '#16a34a', border: 'none', color: '#ffffff', padding: '10px 18px', borderRadius: 10, fontWeight: 900, cursor: 'pointer' }}>OK</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 };
@@ -560,13 +723,23 @@ const RecordSummary = ({ onOpenMenu }) => {
 		});
 	}, [selectedId]);
 
+	const displayEndDate = useMemo(() => {
+		if (!selected?.startDate) return selected?.endDate || null;
+		const start = parseDMY(selected.startDate);
+		const providedEnd = selected?.endDate ? parseDMY(selected.endDate) : null;
+		if (!providedEnd) return addDays(selected.startDate, 4);
+		const days = Math.round((providedEnd - start) / (1000 * 60 * 60 * 24));
+		if (days < 3 || days > 5) return addDays(selected.startDate, 4);
+		return selected.endDate;
+	}, [selected]);
 	const durationDays = useMemo(() => {
-		if (!selected?.startDate || !selected?.endDate) return 'N/A';
-		const ms = parseDMY(selected.endDate) - parseDMY(selected.startDate);
+		if (!selected?.startDate || !displayEndDate) return 'N/A';
+		const ms = parseDMY(displayEndDate) - parseDMY(selected.startDate);
 		const d = Math.round(ms / (1000 * 60 * 60 * 24));
 		return `${d} day${d === 1 ? '' : 's'}`;
-	}, [selected]);
-	const analysisText = selected?.status === 'Ready' ? 'Based on the input parameters, the tuba is ready for distillation.' : 'Batch is queued; more data is needed before distillation.';
+	}, [selected, displayEndDate]);
+	const isReady = selected?.status === 'Ready';
+	const analysisText = isReady ? 'Based on the input parameters, the tuba is ready for distillation.' : 'Batch is queued; more data is needed before distillation.';
 
 	return (
 		<div className="record-summary-page" style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
@@ -596,11 +769,11 @@ const RecordSummary = ({ onOpenMenu }) => {
 					))}
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Analysis</div>
+					<div className="panel" style={{ background: isReady ? '#e8f5e8' : '#fee2e2', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+						<div style={{ fontSize: 20, fontWeight: 800, color: isReady ? '#1b5e20' : '#7f1d1d', marginBottom: 6 }}>Analysis</div>
 						<div style={{ display: 'flex', gap: 12 }}>
-							<div style={{ width: 26, height: 26, background: '#16a34a', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>✓</div>
-							<div style={{ color: '#333' }}>{analysisText}</div>
+							<div style={{ width: 26, height: 26, background: isReady ? '#16a34a' : '#e11d48', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>{isReady ? '✓' : '✕'}</div>
+							<div style={{ color: isReady ? '#065f46' : '#7f1d1d', fontWeight: 700 }}>{analysisText}</div>
 						</div>
 					</div>
 					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
@@ -615,10 +788,8 @@ const RecordSummary = ({ onOpenMenu }) => {
 							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf' }}>Duration</div>
 							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>
 								{durationDays}
-								<div style={{ fontSize: 11, color: '#8a8f98', marginTop: 6 }}>Start Date {selected?.startDate || '—'}<br/>End Date {selected?.endDate || '—'}</div>
+								<div style={{ fontSize: 11, color: '#8a8f98', marginTop: 6 }}>Start Date {selected?.startDate || '—'}<br/>End Date {displayEndDate || '—'}</div>
 							</div>
-							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf' }}>Predicted Income</div>
-							<div style={{ padding: 14, background: '#fff', color: '#16a34a', fontWeight: 900 }}>{selected?.predictedIncome ?? 'N/A'}</div>
 						</div>
 					</div>
 				</div>
@@ -674,10 +845,15 @@ const FermentationMonitoring = ({ onOpenMenu }) => {
 					</div>
 					<div style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 18, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Analysis</div>
-						<p style={{ color: '#333', lineHeight: 1.6, fontSize: 14, margin: 0 }}>
-							The fermentation process is progressing normally. pH levels are within optimal range, alcohol content is increasing steadily,
-							and temperature is maintained at appropriate levels for successful fermentation.
-						</p>
+						<div style={{ color: '#333', lineHeight: 1.6, fontSize: 14 }}>
+							<div style={{ marginBottom: 6 }}>Fermentation is a balance among pH, alcohol, and temperature. Changes in one affect the others:</div>
+							<ul style={{ margin: 0, paddingLeft: 18 }}>
+								<li><b>pH</b>: As yeast consumes sugars, acids form and pH slowly drops. Too high pH encourages contamination; too low stresses yeast and can stall fermentation.</li>
+								<li><b>Alcohol</b>: Rises as sugar converts. Rapid alcohol increase with weak pH control may stress yeast and create off‑flavors.</li>
+								<li><b>Temperature</b>: Warmer speeds reactions; too warm risks harsh flavors, too cool slows yeast and extends time to complete.</li>
+							</ul>
+							<div style={{ marginTop: 8 }}>Keep temperature stable, allow a gradual pH decline, and expect alcohol to rise steadily for a healthy fermentation.</div>
+						</div>
 					</div>
 				</div>
 			</div>
