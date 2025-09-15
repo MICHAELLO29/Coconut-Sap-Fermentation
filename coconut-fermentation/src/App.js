@@ -410,16 +410,16 @@ const Dashboard = ({ onOpenMenu }) => {
 
 			{/* Quick Insights */}
 			<div className="card" style={{ background: '#ffffff', padding: 18, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', margin: '0 20px 10px', border: '1px solid #e5e7eb' }}>
-				<div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-					<div style={{ minWidth: 220 }}>
+				<div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', justifyContent: 'center' }}>
+					<div style={{ minWidth: 220, textAlign: 'center' }}>
 						<div style={{ fontSize: 12, color: '#6b7280', fontWeight: 800 }}>Most Recent Record</div>
 						<div style={{ fontSize: 16, fontWeight: 900, color: '#111' }}>{lastRecordDate ? lastRecordDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</div>
 					</div>
-					<div style={{ minWidth: 220 }}>
+					<div style={{ minWidth: 220, textAlign: 'center' }}>
 						<div style={{ fontSize: 12, color: '#6b7280', fontWeight: 800 }}>Next Estimated Completion</div>
 						<div style={{ fontSize: 16, fontWeight: 900, color: '#111' }}>{nextCompletion ? nextCompletion.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</div>
 					</div>
-					<div style={{ minWidth: 220 }}>
+					<div style={{ minWidth: 220, textAlign: 'center' }}>
 						<div style={{ fontSize: 12, color: '#6b7280', fontWeight: 800 }}>Current Time</div>
 						<div style={{ fontSize: 16, fontWeight: 900, color: '#111' }}>{now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
 					</div>
