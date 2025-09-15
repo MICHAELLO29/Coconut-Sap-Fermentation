@@ -106,6 +106,8 @@ const Dashboard = ({ onOpenMenu }) => {
 	// Trigger re-computation from API/localStorage periodically and on storage events
 	const [refreshTick, setRefreshTick] = useState(0);
 	const [apiBatches, setApiBatches] = useState(null);
+	const [dashLoading, setDashLoading] = useState(true);
+	useEffect(()=>{ const t=setTimeout(()=>setDashLoading(false), 420); return ()=>clearTimeout(t); },[]);
 	// Load batches from localStorage or fallback
 	const defaultBatches = useMemo(() => ([
 		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', phLevel: 5.6, brix: 16.0, alcohol: 25.0 },
@@ -123,6 +125,18 @@ const Dashboard = ({ onOpenMenu }) => {
 		} catch { return defaultBatches; }
 	}, [defaultBatches, refreshTick, apiBatches]);
 	const batches = useMemo(() => computeStatuses(batchesRaw), [batchesRaw]);
+
+	// Live update cue
+	const [justUpdated, setJustUpdated] = useState(false);
+	useEffect(()=>{ setJustUpdated(true); const t=setTimeout(()=>setJustUpdated(false), 900); return ()=>clearTimeout(t); }, [refreshTick, apiBatches]);
+
+	// Filters (chips)
+	const [statusFilter, setStatusFilter] = useState('all'); // all | ready | progress
+	const filteredBatches = useMemo(()=>{
+		if (statusFilter==='ready') return batches.filter(b=>b.status==='Ready');
+		if (statusFilter==='progress') return batches.filter(b=>b.status!=='Ready');
+		return batches;
+	}, [batches, statusFilter]);
 
 	useEffect(() => {
 		const t = setInterval(() => setNow(new Date()), 1000);
@@ -173,6 +187,20 @@ const Dashboard = ({ onOpenMenu }) => {
 			.menu { width: 300px; }
 			.inputRow { gap: 12px; }
 			.inputRow input { width: 100%; }
+			/* Global UX helpers */
+			@keyframes uxFadeUp { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+			.ux-card { animation: uxFadeUp .32s ease both; }
+			.ux-pressable { transition: transform 120ms ease, box-shadow 120ms ease; }
+			.ux-pressable:active { transform: scale(.98); }
+			.ux-focus { outline: none; }
+			.ux-focus:focus { box-shadow: 0 0 0 3px rgba(22,163,74,.25); }
+			.ux-meter { height: 10px; background:#eef6ef; border:1px solid #d9ead9; border-radius:999px; overflow:hidden; }
+			.ux-meter-bar { height:100%; background:#16a34a; width:0; transition: width 240ms ease; }
+			.ux-skeleton { background: linear-gradient(90deg,#eee 25%, #f5f5f5 37%, #eee 63%); background-size:400% 100%; animation: uxShimmer 1.2s infinite; }
+			@keyframes uxShimmer { 0% { background-position: 100% 0 } 100% { background-position: -100% 0 } }
+			.ux-seg { display:inline-flex; gap:6px; background:#f1f5f3; padding:4px; border-radius:999px; border:1px solid #d6e7d6; }
+			.ux-seg button { border:none; padding:6px 10px; border-radius:999px; background:transparent; font-weight:800; color:#166534; cursor:pointer; }
+			.ux-seg button.on { background:#16a34a; color:#fff; }
 			/* Generic panel animation used on Save New Record and Record Summary */
 			.panel { opacity: 0; transform: translateY(10px); }
 			.panel.enter { opacity: 1; transform: translateY(0); transition: opacity .4s ease, transform .4s ease; }
@@ -201,6 +229,27 @@ const Dashboard = ({ onOpenMenu }) => {
 	// Quick insight metrics for an at-a-glance dashboard
 	const readyCount = useMemo(() => batches.filter(b => b.status === 'Ready').length, [batches]);
 	const notReadyCount = useMemo(() => Math.max(0, (batches?.length || 0) - readyCount), [batches, readyCount]);
+
+	// Animated counters
+	const useCountUp = (target, durationMs = 600) => {
+		const [value, setValue] = useState(0);
+		useEffect(() => {
+			let raf = 0; const start = performance.now(); const from = value; const to = Number(target) || 0;
+			const tick = (t) => {
+				const p = Math.min(1, (t - start) / durationMs);
+				const eased = 1 - Math.pow(1 - p, 3);
+				setValue(Math.round(from + (to - from) * eased));
+				if (p < 1) raf = requestAnimationFrame(tick);
+			};
+			raf = requestAnimationFrame(tick);
+			return () => cancelAnimationFrame(raf);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, [target]);
+		return value;
+	};
+	const dispTotal = useCountUp(batches.length);
+	const dispReady = useCountUp(readyCount);
+	const dispNotReady = useCountUp(notReadyCount);
 	const nextCompletion = useMemo(() => {
 		const today = new Date();
 		const futureDates = (batches || [])
@@ -316,6 +365,21 @@ const Dashboard = ({ onOpenMenu }) => {
 	};
 	const litersChartData = useMemo(() => aggregateBy(lambanogData, 'liters', litersRange), [lambanogData, litersRange]);
 
+	// Action Center: derive issues (simple heuristics)
+	const issues = useMemo(()=>{
+		return batches.map(b=>{
+			const ageDays = Math.max(0, Math.round((new Date() - parseDMY(b.startDate)) / (1000*60*60*24)));
+			const late = b?.endDate ? (parseDMY(b.endDate) < new Date() && b.status!=='Ready') : false;
+			const lowPH = Number(b.phLevel) && b.phLevel < 5.0;
+			const lowBrix = Number(b.brix) && b.brix < 15;
+			const needs = (late || lowPH || lowBrix) ? ['Check batch'] : [];
+			if (late) needs.push('Past end date');
+			if (lowPH) needs.push('pH low');
+			if (lowBrix) needs.push('Brix low');
+			return { id:b.id, tags: needs, ageDays };
+		}).filter(x=>x.tags.length);
+	},[batches, refreshTick]);
+
 	return (
 		<div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
 			<Header title="Coconut Sap Fermentation Center" rightContent={timeEl} onOpenMenu={onOpenMenu} />
@@ -323,19 +387,19 @@ const Dashboard = ({ onOpenMenu }) => {
 			<div className="grid-3" style={{
 				display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, margin: 20, marginTop: 10, marginBottom: 20
 			}}>
-				<div className="card" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #333' }}>
+				<div className="card ux-card" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #333' }}>
 					<h3 style={{ color: '#333', fontSize: 16, fontWeight: 800, marginBottom: 6 }}>Total Batches</h3>
-					<div style={{ fontSize: 40, fontWeight: 900, color: '#111', lineHeight: 1 }}>{batches.length}</div>
+					<div style={{ fontSize: 40, fontWeight: 900, color: '#111', lineHeight: 1 }}>{dispTotal}</div>
 					<div style={{ fontSize: 12, color: '#6b7280', marginTop: 8 }}>Last record {lastRecordDate ? lastRecordDate.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) : 'N/A'}</div>
 				</div>
-				<div className="card" style={{ background: '#e8f5e8', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #4CAF50' }}>
+				<div className="card ux-card" style={{ background: '#e8f5e8', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #4CAF50' }}>
 					<h3 style={{ color: '#1b5e20', fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Batches Ready</h3>
-					<div style={{ fontSize: 40, fontWeight: 900, color: '#16a34a', lineHeight: 1 }}>{readyCount}</div>
+					<div style={{ fontSize: 40, fontWeight: 900, color: '#16a34a', lineHeight: 1 }}>{dispReady}</div>
 					<div style={{ fontSize: 12, color: '#1b5e20', marginTop: 8 }}>Next completion {nextCompletion ? nextCompletion.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) : 'N/A'}</div>
 				</div>
-				<div className="card" style={{ background: '#ffebee', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #f44336' }}>
+				<div className="card ux-card" style={{ background: '#ffebee', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', textAlign: 'center', border: '2px solid #f44336' }}>
 					<h3 style={{ color: '#7f1d1d', fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Batches In Progress</h3>
-					<div style={{ fontSize: 40, fontWeight: 900, color: '#e11d48', lineHeight: 1 }}>{notReadyCount}</div>
+					<div style={{ fontSize: 40, fontWeight: 900, color: '#e11d48', lineHeight: 1 }}>{dispNotReady}</div>
 					<div style={{ fontSize: 12, color: '#7f1d1d', marginTop: 8 }}>Monitoring for optimal pH and Brix</div>
 				</div>
 			</div>
@@ -358,11 +422,17 @@ const Dashboard = ({ onOpenMenu }) => {
 				</div>
 			</div>
 
-			<div className="tableWrap" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', margin: 20, marginBottom: 30 }}>
+			<div className="tableWrap ux-card" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', margin: 20, marginBottom: 30 }}>
 				<h2 style={{ color: '#333', fontSize: 20, fontWeight: 600, marginBottom: 20 }}>Batch List</h2>
 				<div style={{ overflowX: 'auto' }}>
 					{/* Outer frame */}
 					<div style={{ border: '3px solid #16a34a', borderRadius: 12, overflow: 'hidden' }}>
+						{dashLoading ? (
+							<div style={{ padding:20 }}>
+								<div className="ux-skeleton" style={{ height:16, marginBottom:10, borderRadius:6 }} />
+								{[...Array(5)].map((_,i)=>(<div key={i} className="ux-skeleton" style={{ height:42, marginBottom:8, borderRadius:8 }} />))}
+							</div>
+						) : (
 						<table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 14 }}>
 							<thead>
 								<tr style={{ background: '#fff', color: '#111' }}>
@@ -374,7 +444,7 @@ const Dashboard = ({ onOpenMenu }) => {
 								</tr>
 							</thead>
 							<tbody>
-								{batches.map((batch) => (
+								{filteredBatches.map((batch) => (
 									<tr key={batch.id} style={{ backgroundColor: '#fff' }}>
 										<td style={{ padding: '14px 12px', textAlign: 'center', borderRight: '2px solid #16a34a', borderBottom: '2px solid #16a34a', wordBreak: 'break-word' }}>{batch.id}</td>
 										<td style={{ padding: '14px 12px', textAlign: 'center', borderRight: '2px solid #16a34a', borderBottom: '2px solid #16a34a' }}>{batch.startDate}</td>
@@ -387,6 +457,7 @@ const Dashboard = ({ onOpenMenu }) => {
 								))}
 							</tbody>
 						</table>
+						)}
 					</div>
 				</div>
 			</div>
@@ -416,8 +487,14 @@ const Dashboard = ({ onOpenMenu }) => {
 	);
 };
 
-const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
+	const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 	const [formData, setFormData] = useState({ brix: '16.0', alcoholContent: '25.0', temperature: '32', producedLiters: '', timeInterval: '56:04:01', logDate: '20/05/25' });
+	const [saving, setSaving] = useState(false);
+	const [saveError, setSaveError] = useState('');
+	const firstInvalidRef = useRef(null);
+	// Autosave draft
+	useEffect(()=>{ try { const saved = JSON.parse(localStorage.getItem('saveDraft')||'null'); if (saved && typeof saved==='object') setFormData(prev=>({...prev, ...saved})); } catch {} },[]);
+	useEffect(()=>{ try { localStorage.setItem('saveDraft', JSON.stringify(formData)); } catch {} }, [formData]);
 	const [toast, setToast] = useState({ open: false, message: '', tone: 'success' });
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const confirmActionRef = useRef(null);
@@ -440,18 +517,41 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 		}
 		setFormData(prev => ({ ...prev, [name]: value }));
 	};
-	const inputBox = (label, name, value) => (
-		<div className="inputRow" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-			<label style={{ color: '#9e9e9e', fontWeight: 700, minWidth: 140 }}>{label}</label>
-			<input
-				name={name}
-				value={value}
-				onChange={handleInputChange}
-				type={name === 'temperature' ? 'number' : 'text'}
-				step={name === 'temperature' ? '1' : undefined}
-				min={name === 'temperature' ? '0' : undefined}
-				style={{ flex: 1, maxWidth: 350, padding: '18px 16px', borderRadius: 12, border: '1px solid #eee', background: '#f6f7f7', textAlign: 'right', fontSize: 18, color: '#333' }}
-			/>
+	const stepField = (key, delta) => {
+		setFormData(prev => {
+			const raw = String(prev[key] || '0').replace(/[^0-9.]/g, '');
+			const num = parseFloat(raw);
+			const next = Number.isFinite(num) ? num + delta : delta;
+			const fixed = key === 'temperature' ? String(Math.max(0, Math.round(next))) : String(Math.max(0, parseFloat(next.toFixed(1))));
+			return { ...prev, [key]: fixed };
+		});
+	};
+	const inputBox = (label, name, value, helper) => (
+		<div className="inputRow" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+			<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+				<label style={{ color: '#6b7280', fontWeight: 800, minWidth: 140 }}>{label}</label>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, maxWidth: 350 }}>
+					<button type="button" onClick={() => stepField(name, -1)} className="ux-pressable" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>-</button>
+					<input
+						name={name}
+						value={value}
+						onChange={handleInputChange}
+						type={name === 'temperature' ? 'number' : 'text'}
+						step={name === 'temperature' ? '1' : undefined}
+						min={name === 'temperature' ? '0' : undefined}
+						ref={helper && helper.valid===false && !firstInvalidRef.current ? firstInvalidRef : undefined}
+						aria-invalid={helper ? helper.valid===false : undefined}
+						className="ux-focus"
+						style={{ flex: 1, padding: '18px 16px', borderRadius: 12, border: '1px solid #eee', background: '#f6f7f7', textAlign: 'right', fontSize: 18, color: '#333' }}
+					/>
+					<button type="button" onClick={() => stepField(name, 1)} className="ux-pressable" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>+</button>
+				</div>
+			</div>
+			{helper && (
+				<div style={{ alignSelf: 'flex-end', maxWidth: 350, color: helper.valid===false ? '#b91c1c' : '#6b7280', fontSize: 12 }}>
+					{helper.text}
+				</div>
+			)}
 		</div>
 	);
 
@@ -485,6 +585,28 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 		});
 	}, []);
 
+	// Completion meter and validation
+	const completed = ['brix','alcoholContent','temperature','timeInterval','logDate'].reduce((n,k)=>n + (String(formData[k]||'').trim()?1:0), 0);
+	const total = 5;
+	const brixNum = parseFloat(formData.brix);
+	const alcNum = parseFloat(formData.alcoholContent);
+	const tempNum = parseFloat(formData.temperature);
+	const reqOk = (Number.isFinite(brixNum) && brixNum>=15) && (Number.isFinite(alcNum) && alcNum>=20) && (Number.isFinite(tempNum) && tempNum>=28 && tempNum<=35) && String(formData.logDate||'').trim();
+	const helpers = {
+		brix: { text: 'Target ≥ 15 °Bx', valid: Number.isFinite(brixNum) ? brixNum>=15 : undefined },
+		alcoholContent: { text: 'Target ≥ 20 %', valid: Number.isFinite(alcNum) ? alcNum>=20 : undefined },
+		temperature: { text: 'Optimal 28–35 °C', valid: Number.isFinite(tempNum) ? (tempNum>=28 && tempNum<=35) : undefined },
+		producedLiters: { text: 'Optional (e.g., 21.5 L)', valid: undefined },
+		timeInterval: { text: 'e.g., 56:04:01', valid: String(formData.timeInterval||'').trim()?true:undefined },
+		logDate: { text: 'Required', valid: String(formData.logDate||'').trim()?true:false }
+	};
+
+	useEffect(()=>{
+		const onKey = (e) => { if (e.key==='Enter' && reqOk && !saving) handleSave(); };
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, [reqOk, saving]);
+
 	const getNextId = () => {
 		try {
 			const arr = JSON.parse(localStorage.getItem('batches') || '[]');
@@ -502,6 +624,9 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 
 	const handleSave = async () => {
 		try {
+			setSaveError('');
+			if (!reqOk) { if (firstInvalidRef.current) firstInvalidRef.current.focus(); return; }
+			setSaving(true);
 			const existing = JSON.parse(localStorage.getItem('batches') || '[]');
 			const fresh = getNextId();
 			const start = formData.logDate || formatDMY(new Date());
@@ -547,7 +672,10 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 			}
 		} catch (e) {
 			console.error(e);
+			setSaveError('Network error. Please try again.');
 			showToast('Failed to save record.', 'error');
+		} finally {
+			setSaving(false);
 		}
 	};
 
@@ -630,14 +758,18 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 			<div className="detailsGrid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24, padding: 24 }}>
 				<div className="panel" style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 					<div style={{ fontSize: 28, fontWeight: 800, color: '#111', marginBottom: 12 }}>Production Details</div>
+					<div style={{ display:'flex', alignItems:'center', gap:10, margin:'6px 0 16px' }}>
+						<div className="ux-meter" style={{ flex:1 }}><div className="ux-meter-bar" style={{ width: `${Math.round((completed/Math.max(1,total))*100)}%` }} /></div>
+						<div style={{ fontSize:12, color:'#166534', fontWeight:800 }}>{completed}/{total}</div>
+					</div>
 					<div style={{ background: '#f1f2f4', display: 'inline-block', padding: '8px 14px', borderRadius: 10, marginBottom: 18, color: '#333', fontWeight: 700 }}>Batch Number: {nextId.str}</div>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-						{inputBox('Brix (sugar)', 'brix', formData.brix)}
-						{inputBox('Alcohol Content', 'alcoholContent', formData.alcoholContent)}
-						{inputBox('Temperature', 'temperature', formData.temperature)}
-						{inputBox('Time Interval:', 'timeInterval', formData.timeInterval)}
-						{inputBox('Produced Liters', 'producedLiters', formData.producedLiters)}
-						{inputBox('Log Date:', 'logDate', formData.logDate)}
+						{inputBox('Brix (sugar)', 'brix', formData.brix, helpers.brix)}
+						{inputBox('Alcohol Content', 'alcoholContent', formData.alcoholContent, helpers.alcoholContent)}
+						{inputBox('Temperature', 'temperature', formData.temperature, helpers.temperature)}
+						{inputBox('Time Interval:', 'timeInterval', formData.timeInterval, helpers.timeInterval)}
+						{inputBox('Produced Liters', 'producedLiters', formData.producedLiters, helpers.producedLiters)}
+						{inputBox('Log Date:', 'logDate', formData.logDate, helpers.logDate)}
 					</div>
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -667,13 +799,19 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 				</div>
 			</div>
 			<div style={{ display: 'flex', justifyContent: 'center', gap: 12, margin: '24px 0 40px' }}>
-				<button className="pressable" onClick={handleSave} style={{ background: '#16a34a', color: '#fff', fontWeight: 800, border: 'none', padding: '16px 42px', borderRadius: 50, fontSize: 18, cursor: 'pointer' }}>
+				<button disabled={!reqOk || saving} title={!reqOk? 'Fill required fields to save' : ''} className="pressable" onClick={handleSave} style={{ background: !reqOk ? '#a7f3d0' : '#16a34a', color: '#fff', fontWeight: 800, border: 'none', padding: '16px 42px', borderRadius: 50, fontSize: 18, cursor: !reqOk? 'not-allowed':'pointer', display:'inline-flex', alignItems:'center', gap:10 }}>
+					{saving && <span className="ux-skeleton" style={{ width:18, height:18, borderRadius:'50%' }} />}
 					Save Record
 				</button>
 				<button className="pressable" onClick={handleReset} style={{ background: '#ffffff', color: '#333', fontWeight: 700, border: '2px solid #e5e7eb', padding: '16px 24px', borderRadius: 50, fontSize: 16, cursor: 'pointer' }}>
 					Reset
 				</button>
 			</div>
+			{saveError && (
+				<div style={{ textAlign:'center', color:'#b91c1c', fontWeight:800, marginTop:-24, marginBottom:24 }}>
+					{saveError} <button onClick={handleSave} style={{ background:'transparent', border:'none', color:'#16a34a', cursor:'pointer' }}>Retry</button>
+				</div>
+			)}
 			{/* Toast notification */}
 			{toast.open && (
 				<div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', background: toast.tone==='error'?'#fee2e2':'#e8f5e8', color: toast.tone==='error'?'#991b1b':'#065f46', border: `2px solid ${toast.tone==='error'?'#fecaca':'#a7f3d0'}`, padding: '12px 16px', borderRadius: 12, fontWeight: 800, boxShadow: '0 8px 18px rgba(0,0,0,0.08)', zIndex: 2000 }}>
@@ -749,11 +887,16 @@ const RecordSummary = ({ onOpenMenu }) => {
 	const isReady = selected?.status === 'Ready';
 	const analysisText = isReady ? 'Based on the input parameters, the tuba is ready for distillation.' : 'Batch is queued; more data is needed before distillation.';
 
+	// Completion meter across displayed fields
+	const summaryFields = [selected?.brix, selected?.alcohol, selected?.temperature, selected?.timeInterval, selected?.startDate];
+	const summaryCompleted = summaryFields.reduce((n,v)=>n+(v?1:0),0);
+	const summaryTotal = summaryFields.length;
+
 	return (
 		<div className="record-summary-page" style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
 			<Header title="Record Summary" onOpenMenu={onOpenMenu} />
 			<div className="summaryGrid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24, padding: 24 }}>
-				<div className="panel" style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+				<div className="panel ux-card" style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
 						<div style={{ fontSize: 28, fontWeight: 800, color: '#111' }}>Batch {selected?.id || '—'}</div>
 						<select value={selectedId} onChange={(e)=>setSelectedId(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid #e0e0e0' }}>
@@ -762,6 +905,10 @@ const RecordSummary = ({ onOpenMenu }) => {
 								return <option key={b.id} value={b.id}>{label}</option>;
 							})}
 						</select>
+					</div>
+					<div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+						<div className="ux-meter" style={{ flex:1 }}><div className="ux-meter-bar" style={{ width: `${Math.round((summaryCompleted/Math.max(1,summaryTotal))*100)}%` }} /></div>
+						<div style={{ fontSize:12, color:'#166534', fontWeight:800 }}>{summaryCompleted}/{summaryTotal}</div>
 					</div>
 					{[
 						{ label: 'Brix (sugar):', value: selected?.brix ?? 'N/A' },
@@ -777,14 +924,14 @@ const RecordSummary = ({ onOpenMenu }) => {
 					))}
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<div className="panel" style={{ background: isReady ? '#e8f5e8' : '#fee2e2', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+					<div className="panel ux-card" style={{ background: isReady ? '#e8f5e8' : '#fee2e2', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: isReady ? '#1b5e20' : '#7f1d1d', marginBottom: 6 }}>Analysis</div>
 						<div style={{ display: 'flex', gap: 12 }}>
 							<div style={{ width: 26, height: 26, background: isReady ? '#16a34a' : '#e11d48', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>{isReady ? '✓' : '✕'}</div>
 							<div style={{ color: isReady ? '#065f46' : '#7f1d1d', fontWeight: 700 }}>{analysisText}</div>
 						</div>
 					</div>
-					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+					<div className="panel ux-card" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Production Summary</div>
 						<div style={{
 							display: 'grid', gridTemplateColumns: '1fr 1fr', border: '2px solid #cfe3cf', borderRadius: 12, overflow: 'hidden', background: '#eaf6ea'
@@ -826,7 +973,7 @@ const FermentationMonitoring = ({ onOpenMenu }) => {
 		<div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
 			<Header title="Fermentation Monitoring" onOpenMenu={onOpenMenu} />
 			<div className="monitorGrid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, padding: 24 }}>
-				<div style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+				<div className="ux-card" style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 					<div style={{ width: '100%', height: 420 }}>
 						<ResponsiveContainer width="100%" height="100%">
 							<LineChart data={data}>
@@ -842,8 +989,8 @@ const FermentationMonitoring = ({ onOpenMenu }) => {
 					</div>
 					<div style={{ marginTop: 10, color: '#666', fontSize: 14 }}>Start: {startDateTime}</div>
 				</div>
-				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<div style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+				<div className="ux-card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+					<div className="ux-card" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 18, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Parameters</div>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 14, height: 14, background: '#2E7D32', borderRadius: '50%' }} /> pH Level</div>
@@ -851,7 +998,7 @@ const FermentationMonitoring = ({ onOpenMenu }) => {
 							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 14, height: 14, background: '#00BCD4', borderRadius: '50%' }} /> Temperature</div>
 						</div>
 					</div>
-					<div style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+					<div className="ux-card" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 18, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Analysis</div>
 						<div style={{ color: '#333', lineHeight: 1.6, fontSize: 14 }}>
 							<div style={{ marginBottom: 6 }}>Fermentation is a balance among pH, alcohol, and temperature. Changes in one affect the others:</div>
