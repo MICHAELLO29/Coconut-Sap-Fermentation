@@ -654,7 +654,7 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Fermentation Timeline</div>
 						<div style={{ color: '#333' }}>Start Date: <b style={{ color: '#16a34a' }}>{formData.logDate}</b></div>
-						<div style={{ color: '#333' }}>End Date: <b style={{ color: '#16a34a' }}>{addDays(formData.logDate, 2)}</b></div>
+						<div style={{ color: '#333' }}>End Date: <b style={{ color: '#16a34a' }}>{addDays(formData.logDate, 4)}</b></div>
 					</div>
 				</div>
 			</div>
@@ -723,13 +723,23 @@ const RecordSummary = ({ onOpenMenu }) => {
 		});
 	}, [selectedId]);
 
+	const displayEndDate = useMemo(() => {
+		if (!selected?.startDate) return selected?.endDate || null;
+		const start = parseDMY(selected.startDate);
+		const providedEnd = selected?.endDate ? parseDMY(selected.endDate) : null;
+		if (!providedEnd) return addDays(selected.startDate, 4);
+		const days = Math.round((providedEnd - start) / (1000 * 60 * 60 * 24));
+		if (days < 3 || days > 5) return addDays(selected.startDate, 4);
+		return selected.endDate;
+	}, [selected]);
 	const durationDays = useMemo(() => {
-		if (!selected?.startDate || !selected?.endDate) return 'N/A';
-		const ms = parseDMY(selected.endDate) - parseDMY(selected.startDate);
+		if (!selected?.startDate || !displayEndDate) return 'N/A';
+		const ms = parseDMY(displayEndDate) - parseDMY(selected.startDate);
 		const d = Math.round(ms / (1000 * 60 * 60 * 24));
 		return `${d} day${d === 1 ? '' : 's'}`;
-	}, [selected]);
-	const analysisText = selected?.status === 'Ready' ? 'Based on the input parameters, the tuba is ready for distillation.' : 'Batch is queued; more data is needed before distillation.';
+	}, [selected, displayEndDate]);
+	const isReady = selected?.status === 'Ready';
+	const analysisText = isReady ? 'Based on the input parameters, the tuba is ready for distillation.' : 'Batch is queued; more data is needed before distillation.';
 
 	return (
 		<div className="record-summary-page" style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
@@ -759,11 +769,11 @@ const RecordSummary = ({ onOpenMenu }) => {
 					))}
 				</div>
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Analysis</div>
+					<div className="panel" style={{ background: isReady ? '#e8f5e8' : '#fee2e2', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+						<div style={{ fontSize: 20, fontWeight: 800, color: isReady ? '#1b5e20' : '#7f1d1d', marginBottom: 6 }}>Analysis</div>
 						<div style={{ display: 'flex', gap: 12 }}>
-							<div style={{ width: 26, height: 26, background: '#16a34a', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>✓</div>
-							<div style={{ color: '#333' }}>{analysisText}</div>
+							<div style={{ width: 26, height: 26, background: isReady ? '#16a34a' : '#e11d48', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>{isReady ? '✓' : '✕'}</div>
+							<div style={{ color: isReady ? '#065f46' : '#7f1d1d', fontWeight: 700 }}>{analysisText}</div>
 						</div>
 					</div>
 					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
@@ -778,10 +788,8 @@ const RecordSummary = ({ onOpenMenu }) => {
 							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf' }}>Duration</div>
 							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>
 								{durationDays}
-								<div style={{ fontSize: 11, color: '#8a8f98', marginTop: 6 }}>Start Date {selected?.startDate || '—'}<br/>End Date {selected?.endDate || '—'}</div>
+								<div style={{ fontSize: 11, color: '#8a8f98', marginTop: 6 }}>Start Date {selected?.startDate || '—'}<br/>End Date {displayEndDate || '—'}</div>
 							</div>
-							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf' }}>Predicted Income</div>
-							<div style={{ padding: 14, background: '#fff', color: '#16a34a', fontWeight: 900 }}>{selected?.predictedIncome ?? 'N/A'}</div>
 						</div>
 					</div>
 				</div>
@@ -837,10 +845,15 @@ const FermentationMonitoring = ({ onOpenMenu }) => {
 					</div>
 					<div style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 18, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Analysis</div>
-						<p style={{ color: '#333', lineHeight: 1.6, fontSize: 14, margin: 0 }}>
-							The fermentation process is progressing normally. pH levels are within optimal range, alcohol content is increasing steadily,
-							and temperature is maintained at appropriate levels for successful fermentation.
-						</p>
+						<div style={{ color: '#333', lineHeight: 1.6, fontSize: 14 }}>
+							<div style={{ marginBottom: 6 }}>Fermentation is a balance among pH, alcohol, and temperature. Changes in one affect the others:</div>
+							<ul style={{ margin: 0, paddingLeft: 18 }}>
+								<li><b>pH</b>: As yeast consumes sugars, acids form and pH slowly drops. Too high pH encourages contamination; too low stresses yeast and can stall fermentation.</li>
+								<li><b>Alcohol</b>: Rises as sugar converts. Rapid alcohol increase with weak pH control may stress yeast and create off‑flavors.</li>
+								<li><b>Temperature</b>: Warmer speeds reactions; too warm risks harsh flavors, too cool slows yeast and extends time to complete.</li>
+							</ul>
+							<div style={{ marginTop: 8 }}>Keep temperature stable, allow a gradual pH decline, and expect alcohol to rise steadily for a healthy fermentation.</div>
+						</div>
 					</div>
 				</div>
 			</div>
