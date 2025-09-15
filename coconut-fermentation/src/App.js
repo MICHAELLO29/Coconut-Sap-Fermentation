@@ -201,6 +201,10 @@ const Dashboard = ({ onOpenMenu }) => {
 			.ux-seg { display:inline-flex; gap:6px; background:#f1f5f3; padding:4px; border-radius:999px; border:1px solid #d6e7d6; }
 			.ux-seg button { border:none; padding:6px 10px; border-radius:999px; background:transparent; font-weight:800; color:#166534; cursor:pointer; }
 			.ux-seg button.on { background:#16a34a; color:#fff; }
+			/* Remove number input spinners when we handle steppers ourselves */
+			input.no-spin::-webkit-outer-spin-button,
+			input.no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+			input.no-spin[type=number] { -moz-appearance: textfield; }
 			/* Generic panel animation used on Save New Record and Record Summary */
 			.panel { opacity: 0; transform: translateY(10px); }
 			.panel.enter { opacity: 1; transform: translateY(0); transition: opacity .4s ease, transform .4s ease; }
@@ -536,12 +540,12 @@ const Dashboard = ({ onOpenMenu }) => {
 						name={name}
 						value={value}
 						onChange={handleInputChange}
-						type={name === 'temperature' ? 'number' : 'text'}
+						type={'text'}
 						step={name === 'temperature' ? '1' : undefined}
 						min={name === 'temperature' ? '0' : undefined}
 						ref={helper && helper.valid===false && !firstInvalidRef.current ? firstInvalidRef : undefined}
 						aria-invalid={helper ? helper.valid===false : undefined}
-						className="ux-focus"
+						className={name === 'temperature' ? 'ux-focus no-spin' : 'ux-focus'}
 						style={{ flex: 1, padding: '18px 16px', borderRadius: 12, border: '1px solid #eee', background: '#f6f7f7', textAlign: 'right', fontSize: 18, color: '#333' }}
 					/>
 					<button type="button" onClick={() => stepField(name, 1)} className="ux-pressable" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>+</button>
