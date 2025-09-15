@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS batches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     batch_id TEXT UNIQUE,
     start_date TEXT,
-    end_date TEXT
+    end_date TEXT,
+    is_logging INTEGER DEFAULT 0
 )
 """)
 
