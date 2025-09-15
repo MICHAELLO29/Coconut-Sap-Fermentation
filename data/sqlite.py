@@ -26,10 +26,6 @@ CREATE TABLE readings (
 ) 
 """)
 
-cur.execute("""
-ALTER TABLE readings ADD COLUMN brix REAL;         
-""")
-
 conn.commit()
 conn.close()
 print("Database and tables created successfully.")
