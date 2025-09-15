@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import ConfirmBatch from './components/ConfirmBatch';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 // Backend API base URL: override via REACT_APP_API_BASE, defaults to Flask on :5000
@@ -58,7 +59,8 @@ const SideMenu = ({ isOpen, onClose, onNavigate, currentPage }) => {
 						{ key: 'dashboard', label: 'Dashboard' },
 						{ key: 'save-record', label: 'Save New Record' },
 						{ key: 'record-summary', label: 'Record Summary' },
-						{ key: 'fermentation-monitoring', label: 'Fermentation Monitoring' }
+						{ key: 'fermentation-monitoring', label: 'Fermentation Monitoring' },
+						{ key: 'confirm-batch', label: 'Confirm Batch' }
 					].map(item => (
 						<button
 							key={item.key}
@@ -653,8 +655,14 @@ const SaveNewRecord = ({ onOpenMenu, onNavigate }) => {
 					{/* Production Forecast panel removed per requirements */}
 					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Fermentation Timeline</div>
-						<div style={{ color: '#333' }}>Start Date: <b style={{ color: '#16a34a' }}>{formData.logDate}</b></div>
-						<div style={{ color: '#333' }}>End Date: <b style={{ color: '#16a34a' }}>{addDays(formData.logDate, 4)}</b></div>
+						<div style={{ background: '#eaf6ea', border: '2px solid #cfe3cf', borderRadius: 12, overflow: 'hidden' }}>
+							<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+								<div style={{ padding: 14, background: '#ffffff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf', color: '#065f46', fontWeight: 800 }}>Start Date</div>
+								<div style={{ padding: 14, background: '#ffffff', borderBottom: '1px solid #cfe3cf', textAlign: 'right', color: '#16a34a', fontWeight: 900 }}>{formData.logDate}</div>
+								<div style={{ padding: 14, background: '#ffffff', borderRight: '1px solid #cfe3cf', color: '#065f46', fontWeight: 800 }}>End Date</div>
+								<div style={{ padding: 14, background: '#ffffff', textAlign: 'right', color: '#16a34a', fontWeight: 900 }}>{addDays(formData.logDate, 4)}</div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -873,6 +881,7 @@ function App() {
 			case 'save-record': return <SaveNewRecord onOpenMenu={() => setMenuOpen(true)} onNavigate={navigate} />;
 			case 'record-summary': return <RecordSummary onOpenMenu={() => setMenuOpen(true)} />;
 			case 'fermentation-monitoring': return <FermentationMonitoring onOpenMenu={() => setMenuOpen(true)} />;
+			case 'confirm-batch': return <ConfirmBatch onOpenMenu={() => setMenuOpen(true)} onNavigate={navigate} />;
 			default: return <Dashboard onOpenMenu={() => setMenuOpen(true)} />;
 		}
 	};
