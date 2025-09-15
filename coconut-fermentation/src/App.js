@@ -993,47 +993,84 @@ const RecordSummary = ({ onOpenMenu }) => {
 };
 
 const FermentationMonitoring = ({ onOpenMenu }) => {
-	const [startDateTime] = useState('2025-05-20 02:26:47');
-	const data = [
-		{ time: '3:00 PM', temp: 0.40, ph: 0.12, alc: 0.00 },
-		{ time: '4:00 PM', temp: 0.42, ph: 0.14, alc: 0.02 },
-		{ time: '5:00 PM', temp: 0.43, ph: 0.20, alc: 0.04 },
-		{ time: '6:00 PM', temp: 0.42, ph: 0.22, alc: 0.03 },
-		{ time: '7:00 PM', temp: 0.38, ph: 0.25, alc: 0.05 },
-		{ time: '8:00 PM', temp: 0.36, ph: 0.26, alc: 0.06 },
-		{ time: '9:00 PM', temp: 0.34, ph: 0.27, alc: 0.07 },
-		{ time: '10:00 PM', temp: 0.30, ph: 0.28, alc: 0.08 },
-		{ time: '11:00 PM', temp: 0.28, ph: 0.29, alc: 0.09 },
-		{ time: '12:00 PM', temp: 0.26, ph: 0.29, alc: 0.10 },
-		{ time: '1:00 AM', temp: 0.22, ph: 0.30, alc: 0.11 }
-	];
+	const [startDateTime, setStartDateTime] = useState('');
+	const [batchId, setBatchId] = useState('001');
+	const [readings, setReadings] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [live, setLive] = useState(true);
+
+	// Fetch from Flask API: /readings/<batch_id>
+	useEffect(() => {
+		let aborted = false;
+		const fetchReadings = async () => {
+			try {
+				const res = await fetch(`${API_BASE}/readings/${batchId}`);
+				if (!res.ok) throw new Error('bad response');
+				const json = await res.json();
+				if (aborted) return;
+				const mapped = (Array.isArray(json)? json:[]).map(r => ({
+					time: r.timestamp ? new Date(r.timestamp * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '',
+					temp: Number(r.temperature) || 0,
+					gravity: Number(r.gravity) || 0,
+					angle: Number(r.angle) || 0
+				}));
+				setReadings(mapped);
+				if (mapped.length && !startDateTime) setStartDateTime(new Date().toLocaleString());
+			} catch {
+				// keep previous readings
+			} finally {
+				if (!aborted) setLoading(false);
+			}
+		};
+		fetchReadings();
+		const id = setInterval(fetchReadings, 5000);
+		return () => { aborted = true; clearInterval(id); };
+	}, [batchId, startDateTime]);
 
 	return (
 		<div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
 			<Header title="Fermentation Monitoring" onOpenMenu={onOpenMenu} />
 			<div className="monitorGrid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, padding: 24 }}>
-				<div className="ux-card" style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+				<div className="ux-card" style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', position:'relative' }}>
+					<div style={{ position:'sticky', top:0, background:'#fff', zIndex:1, marginBottom:12, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+						<div style={{ display:'flex', alignItems:'center', gap:10 }}>
+							<div title={live? 'Live':'Paused'} style={{ width:10, height:10, borderRadius:'50%', background: live? '#16a34a':'#e5e7eb', boxShadow: live? '0 0 0 6px rgba(22,163,74,.15)':'none' }} />
+							<div style={{ fontSize:12, color:'#6b7280' }}>Start: {startDateTime || '—'}</div>
+						</div>
+						<div style={{ display:'flex', alignItems:'center', gap:8 }}>
+							<label style={{ fontSize:12 }}>Batch</label>
+							<input value={batchId} onChange={(e)=>setBatchId(e.target.value)} className="ux-focus" style={{ padding:'6px 8px', border:'1px solid #e5e7eb', borderRadius:8, width:70 }} />
+						</div>
+					</div>
 					<div style={{ width: '100%', height: 420 }}>
+						{loading ? (
+							<div style={{ padding: 10 }}>
+								<div className="ux-skeleton" style={{ height: 20, borderRadius: 6, marginBottom: 10 }} />
+								<div className="ux-skeleton" style={{ height: 360, borderRadius: 10 }} />
+							</div>
+						) : (
 						<ResponsiveContainer width="100%" height="100%">
-							<LineChart data={data}>
+							<LineChart data={readings}>
 								<CartesianGrid stroke="#eee" />
 								<XAxis dataKey="time" />
-								<YAxis domain={[0, 0.5]} tickFormatter={(v) => v.toFixed(2)} />
-								<Tooltip />
-								<Line dataKey="ph" type="monotone" stroke="#2E7D32" strokeWidth={2} dot={false} />
-								<Line dataKey="alc" type="monotone" stroke="#8BC34A" strokeWidth={2} dot={false} />
-								<Line dataKey="temp" type="monotone" stroke="#00BCD4" strokeWidth={2} dot={false} />
+								<YAxis yAxisId="left" domain={[0, 'auto']} />
+								<YAxis yAxisId="right" orientation="right" domain={[0, 'auto']} />
+								<Tooltip cursor={{ stroke:'#9ca3af', strokeDasharray:'4 2' }} />
+								<Line yAxisId="left" dataKey="temp" name="Temperature" type="monotone" stroke="#00BCD4" strokeWidth={2} dot={false} />
+								<Line yAxisId="right" dataKey="gravity" name="Gravity" type="monotone" stroke="#2E7D32" strokeWidth={2} dot={false} />
+								<Line yAxisId="right" dataKey="angle" name="pH Level" type="monotone" stroke="#8BC34A" strokeWidth={2} dot={false} />
 							</LineChart>
 						</ResponsiveContainer>
+						)}
 					</div>
-					<div style={{ marginTop: 10, color: '#666', fontSize: 14 }}>Start: {startDateTime}</div>
+					<div style={{ marginTop: 10, color: '#666', fontSize: 14 }}>Live from API for batch {batchId}</div>
 				</div>
 				<div className="ux-card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					<div className="ux-card" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 18, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Parameters</div>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 14, height: 14, background: '#2E7D32', borderRadius: '50%' }} /> pH Level</div>
-							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 14, height: 14, background: '#8BC34A', borderRadius: '50%' }} /> Alcohol Content</div>
+							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 14, height: 14, background: '#2E7D32', borderRadius: '50%' }} /> Gravity</div>
+							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 14, height: 14, background: '#8BC34A', borderRadius: '50%' }} /> pH Level</div>
 							<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><div style={{ width: 14, height: 14, background: '#00BCD4', borderRadius: '50%' }} /> Temperature</div>
 						</div>
 					</div>
