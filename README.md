@@ -1,14 +1,14 @@
 # Coconut Sap Fermentation Center
 
-A web application for monitoring and analyzing coconut sap fermentation (lambanog), now integrated with sensor-ready workflows and a streamlined, informative dashboard.
+Modern web app for managing coconut sap (lambanog) fermentation. It includes an opinionated UI, real-time monitoring wired to a Flask API, accessibility improvements, and purposeful micro‑interactions.
 
-- Dashboard with batches, statuses, and charts
-- Save New Record with analysis, forecast, and timeline
-- Record Summary view
-- Real-time Fermentation Monitoring graph
-- Slide-out side menu navigation
+- Dashboard with KPIs, filters, table, and chart
+- Save New Record with validation, completion meter, and timeline
+- Record Summary with sticky header and quick navigation
+- Fermentation Monitoring connected to live readings
+- Slide‑out side menu navigation
 
-This app is built with React (Create React App) and Recharts. It implements a clear, at‑a‑glance dashboard and supports local storage plus optional Flask API integration.
+Built with React (CRA) and Recharts on the frontend, and a lightweight Flask API + SQLite in `data/` on the backend.
 
 ## Project Structure
 
@@ -27,24 +27,27 @@ Coconut-Sap-Fermentation/
 ## Features (Updated)
 
 - Dashboard
-  - Live clock and date
-  - KPI cards: Total Batches, Batches Ready, Batches In Progress (+ concise subtext)
-  - Quick Insights row: Most Recent Record, Next Estimated Completion, Current Time
-  - Batch List with clear columns and highlighted status
-  - Chart: Total Liters of Lambanog Made (full-width) with Day/Month/Year aggregation
+  - Live clock/date; animated counters for KPIs
+  - KPI cards: Total Batches, Ready, In‑Progress
+  - Filters (chips): All / Ready / In‑Progress; live update indicator
+  - Batch List with clear statuses; skeleton rows on initial load
+  - Chart: Total Liters with Day/Month/Year aggregation
 
 - Save New Record
-  - Auto-incrementing Batch Number
-  - Real-time Analysis: updates readiness as you type (thresholds: Brix ≥ 15, Alcohol ≥ 20, Temp 28–35°C; configurable)
-  - New Produced Liters field (manual): updates the liters chart without showing in the batch table
-  - Estimated completion now uses a 3–5 day window (default +4 days)
-  - Green-themed toast on save and a confirm modal on reset (no native browser alerts)
+  - Completion meter and inline helper hints (targets: Brix ≥ 15, Alcohol ≥ 20, Temp 28–35 °C)
+  - Sanitized inputs with custom +/- steppers; keyboard shortcuts (Enter to Save; Ctrl/Cmd+K to focus first incomplete)
+  - Autosave draft to `localStorage`; success toast; guarded Save with disabled state and spinner
+  - Estimated completion (+4 days) shown in a two‑column timeline panel
 
 - Record Summary
-  - Clean per-batch details and production summary grid
+  - Sticky header with batch picker, Prev/Next buttons, status chip
+  - Arrow Left/Right to switch batches (keyboard)
+  - Completion meter and two‑column details with hints; skeletons on batch switch
 
 - Fermentation Monitoring
-  - Real-time styled line chart (demo data), ready to connect to sensor feed
+  - Live chart wired to Flask endpoint `GET /readings/<batch_id>` (see `data/app.py`)
+  - Series: Temperature (left Y), Gravity and pH Level (right Y)
+  - Sticky header: batch input, live indicator, start time; skeleton on load
 
 - General UX
   - Slide-out side menu
@@ -97,11 +100,12 @@ npm run build
   - Each chart’s Day/Month/Year selector works independently.
   - In Month/Year, values aggregate by month for multi-point lines.
 
-## Flask API Integration (Optional)
+## Flask API Integration (Updated)
 
-- Base URL is configurable via `REACT_APP_API_BASE` (defaults to `http://localhost:5000`).
-- Dashboard prefers `GET /api/batches`; falls back to `localStorage('batches')` if API is offline.
-- Save New Record posts to `POST /api/batches` (best-effort) and always updates localStorage for instant UI feedback.
+- Base URL via `REACT_APP_API_BASE` (default `http://localhost:5000`).
+- Dashboard prefers `GET /api/batches` (fallback: `localStorage`).
+- Save New Record posts to `POST /api/batches` (best‑effort) and updates `localStorage` for instant UI.
+- Monitoring polls `GET /readings/<batch_id>` every 5s to build series from `angle`, `temperature`, `gravity`, and `timestamp` fields in `ispindel.db`.
 
 Example (Windows PowerShell):
 ```
