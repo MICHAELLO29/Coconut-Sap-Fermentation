@@ -128,7 +128,7 @@ def create_batch():
 
     return jsonify({"status": "batch_created", "batch_id": next_batch_id})
 
-@app.route('/stop_batch/<int:batch_id>', methods=['POST'])
+@app.route('/stop_batch/<batch_id>', methods=['POST'])
 def stop_batch(batch_id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -208,6 +208,46 @@ def active_batch():
         return jsonify({"active": True, "batch_id": row[0]})
     else:
         return jsonify({"active": False})
+    
+
+@app.route("/check_active/<batch_id>", methods=["GET"])
+def check_active(batch_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT is_logging FROM batches WHERE batch_id = ?", (batch_id,))
+    row = cur.fetchone()
+    conn.close()
+
+    if row and row[0] == 1:
+        return jsonify({"active": True})
+    else:
+        return jsonify({"active": False})
+
+@app.route('/get_batches_list', methods=['GET'])
+def get_batches_list():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT batch_id, start_date, end_date, liter, is_logging
+        FROM batches
+        ORDER BY id DESC
+    """)
+    rows = cur.fetchall()
+
+    batches = []
+    for row in rows:
+        batches.append({
+            "id": str(row["batch_id"]).zfill(3),
+            "startDate": row["start_date"],
+            "endDate": row["end_date"],
+            "liter": row["liter"],
+            "is_logging": row["is_logging"],
+            #  brix, ph, alcohol, etc. is not yet reflected, TBA
+        })
+
+    conn.close()
+    return jsonify(batches)
 # Start server
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
