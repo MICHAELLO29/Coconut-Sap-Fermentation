@@ -11,10 +11,22 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row  # returns dict-like rows
     return conn
 
+# Convert gravity to Brix (for in-memory preview only)
 def gravity_to_brix(gravity: float) -> float:
     if gravity is None:
         return None
     return (((182.4601 * gravity - 775.6821) * gravity + 1262.7794) * gravity - 669.5622)
+
+# Get next batch ID
+def get_next_batch_id():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT MAX(id) FROM batches")
+    row = cur.fetchone()
+    conn.close()
+
+    next_id = (row[0] + 1) if row[0] else 1
+    return str(next_id).zfill(3)
 
 # iSpindel logging
 latest_reading = None  # keep in memory preview of latest reading
@@ -95,16 +107,13 @@ def create_batch():
     cur = conn.cursor()
 
     # Determine next batch_id from autoincrement id
-    cur.execute("SELECT MAX(id) FROM batches")
-    row = cur.fetchone()
-    next_id = (row[0] + 1) if row[0] else 1
-    next_batch_id = str(next_id).zfill(3)
+    next_batch_id = get_next_batch_id()
 
     # Insert batch with correct padded batch_id
     cur.execute("""
-        INSERT INTO batches (batch_id, start_date, end_date, is_logging)
-        VALUES (?, ?, ?, 1)
-    """, (next_batch_id, start_date, end_date))
+        INSERT INTO batches (batch_id, start_date, end_date, is_logging, liter)
+        VALUES (?, ?, ?, 1, ?)
+    """, (next_batch_id, start_date, end_date, liter))
     conn.commit()
 
     conn.close()
@@ -144,17 +153,7 @@ def check_connection(batch_id):
     
 @app.route("/next_batch_id", methods=["GET"])
 def next_batch_id():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT MAX(id) FROM batches")
-    row = cur.fetchone()
-    conn.close()
-
-    next_id = (row[0] + 1) if row[0] else 1
-    # Format as "001", "002", ...
-    next_batch_id = str(next_id).zfill(3)
-
-    return jsonify({"next_batch_id": next_batch_id})
+    return jsonify({"next_batch_id": get_next_batch_id()})
 
 @app.route("/latest_readings", methods=["GET"])
 def latest_readings():
@@ -171,12 +170,7 @@ def latest_readings():
     row = cur.fetchone()
 
     # Get next batch id from 'id'
-    cur.execute("SELECT MAX(id) FROM batches")
-    last_id = cur.fetchone()[0]
-    next_id = (last_id + 1) if last_id else 1
-    next_batch_id = str(next_id).zfill(3)
-
-    conn.close()
+    next_batch_id = get_next_batch_id()
 
     if row:
         angle, gravity, brix, temperature = row
