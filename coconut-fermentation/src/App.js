@@ -25,9 +25,14 @@ function App() {
 		return () => window.removeEventListener('resize', handleResize);
 	}, []);
 
-	const handleNavigate = (page) => {
-		setCurrentPage(page);
-		setMenuOpen(false);
+	const [autoStartLive, setAutoStartLive] = useState(false);
+
+	const handleNavigate = (page, options = {}) => {
+	if (page === 'fermentation-monitoring' && options.autoStartLive) {
+		setAutoStartLive(true);
+	}
+	setCurrentPage(page);
+	setMenuOpen(false);
 	};
 
 	const handleToggleMenu = () => {
@@ -47,9 +52,15 @@ function App() {
 			case 'record-summary':
 				return <RecordSummary onToggleMenu={handleToggleMenu} />;
 			case 'fermentation-monitoring':
-				return <FermentationMonitoring onToggleMenu={handleToggleMenu} />;
+  				return (
+					<FermentationMonitoring 
+					onToggleMenu={handleToggleMenu} 
+					autoStartLive={autoStartLive} 
+					onAutoStartConsumed={() => setAutoStartLive(false)} 
+					/>
+				)
 			case 'confirm-batch':
-				return <ConfirmBatch onToggleMenu={handleToggleMenu} />;
+  				return <ConfirmBatch onToggleMenu={handleToggleMenu} onNavigate={handleNavigate} />;
 			default:
 				return <Dashboard onToggleMenu={handleToggleMenu} />;
 		}
