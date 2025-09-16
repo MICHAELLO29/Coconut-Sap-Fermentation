@@ -98,6 +98,14 @@ def get_readings(batch_id):
 # Batch management
 @app.route('/create_batch', methods=['POST'])
 def create_batch():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM batches WHERE is_logging = 1 LIMIT 1")
+    if cur.fetchone():
+        conn.close()
+        return jsonify({"error": "A batch is already active"}), 400
+    conn.close()
+
     data = request.get_json(force=True)
     start_date = data.get("start_date")
     end_date = data.get("end_date")
@@ -186,6 +194,20 @@ def latest_readings():
         "temperature": temperature
     })
 
+@app.route("/active_batch", methods=["GET"])
+def active_batch():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT * FROM batches WHERE is_logging = 1 ORDER BY id DESC LIMIT 1"
+    ) 
+    row = cur.fetchone()
+    conn.close()
+
+    if row:
+        return jsonify({"active": True, "batch_id": row[0]})
+    else:
+        return jsonify({"active": False})
 # Start server
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
