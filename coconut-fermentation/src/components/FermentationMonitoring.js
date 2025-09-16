@@ -1,124 +1,233 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import Header from './Header';
+import { commonStyles, useGlobalStyles } from './styles/GlobalStyles';
 
-const FermentationMonitoring = () => {
-  const [monitoringData, setMonitoringData] = useState([]);
-  const [startDateTime] = useState('2025-05-20 02:26:47');
-
-  useEffect(() => {
-    // Generate initial data
-    const generateData = () => {
-      const data = [];
-      const startTime = new Date('2025-05-20T15:00:00');
-      
-      for (let i = 0; i <= 22; i++) {
-        const time = new Date(startTime.getTime() + i * 60 * 60 * 1000); // Add 1 hour each iteration
-        const timeLabel = time.toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          hour12: true 
-        });
-        
-        // Generate realistic fermentation data
-        const phLevel = 0.12 + (i * 0.007) + (Math.random() - 0.5) * 0.02;
-        const alcoholContent = Math.max(0, 0.001 + (i * 0.004) + (Math.random() - 0.5) * 0.01);
-        const temperature = 0.40 - (i * 0.005) + (Math.random() - 0.5) * 0.03;
-        
-        data.push({
-          time: timeLabel,
-          phLevel: Math.max(0, Math.min(0.5, phLevel)),
-          alcoholContent: Math.max(0, Math.min(0.5, alcoholContent)),
-          temperature: Math.max(0, Math.min(0.5, temperature))
-        });
-      }
-      
-      setMonitoringData(data);
-    };
-
-    generateData();
-
-    // Update data every 5 seconds for real-time effect
-    const interval = setInterval(() => {
-      setMonitoringData(prevData => {
-        return prevData.map(point => ({
-          ...point,
-          phLevel: Math.max(0, Math.min(0.5, point.phLevel + (Math.random() - 0.5) * 0.01)),
-          alcoholContent: Math.max(0, Math.min(0.5, point.alcoholContent + (Math.random() - 0.5) * 0.005)),
-          temperature: Math.max(0, Math.min(0.5, point.temperature + (Math.random() - 0.5) * 0.008))
-        }));
-      });
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="fermentation-monitoring">
-      {/* Header */}
-      <div className="header">
-        <div className="logo-section">
-          <div className="logo">
-            <div className="champagne-flutes">
-              <div className="flute left"></div>
-              <div className="flute right"></div>
-            </div>
-          </div>
-          <h1>Fermentation Monitoring</h1>
-        </div>
-        <div className="header-right">
-          <div className="hamburger-menu">☰</div>
-        </div>
-      </div>
-
-      <div className="main-content">
-        {/* Left Side - Monitoring Graph */}
-        <div className="monitoring-graph">
-          <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f5f5' }}>
-            <p>Real-time monitoring chart will be loaded here</p>
-          </div>
-          
-          <div className="start-date-time">
-            Start: {startDateTime}
-          </div>
-        </div>
-
-        {/* Right Side - Parameters and Analysis */}
-        <div className="side-panel">
-          <div className="parameters-section">
-            <h3>Parameters</h3>
-            <div className="parameter-list">
-              <div className="parameter-item">
-                <div className="parameter-color ph-level"></div>
-                <span>pH Level</span>
-              </div>
-              <div className="parameter-item">
-                <div className="parameter-color alcohol-content"></div>
-                <span>Alcohol Content</span>
-              </div>
-              <div className="parameter-item">
-                <div className="parameter-color temperature"></div>
-                <span>Temperature</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="analysis-section">
-            <h3>Analysis</h3>
-            <div className="analysis-content">
-              <p>The fermentation process is progressing normally. pH levels are within optimal range, alcohol content is increasing steadily, and temperature is being maintained at appropriate levels for successful fermentation.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation Links */}
-      <div className="navigation-links">
-        <Link to="/" className="nav-link">Back to Dashboard</Link>
-        <Link to="/save-record" className="nav-link">Add New Record</Link>
-        <Link to="/record-summary" className="nav-link">View Record Summary</Link>
-      </div>
-    </div>
-  );
+// Helpers
+const parseDMY = (d) => {
+	if (!d) return new Date(0);
+	const [dd, mm, yy] = d.split('/');
+	const year = Number(yy) + 2000; // '25' -> 2025
+	return new Date(year, Number(mm) - 1, Number(dd));
 };
 
-export default FermentationMonitoring; 
+const formatDMY = (date) => {
+	const dd = String(date.getDate()).padStart(2, '0');
+	const mm = String(date.getMonth() + 1).padStart(2, '0');
+	const yy = String(date.getFullYear()).slice(-2);
+	return `${dd}/${mm}/${yy}`;
+};
+
+const addDays = (dateStr, days) => {
+	const dt = parseDMY(dateStr);
+	dt.setDate(dt.getDate() + days);
+	return formatDMY(dt);
+};
+
+const computeStatuses = (list) => {
+	const sorted = [...list].sort((a, b) => parseDMY(a.startDate) - parseDMY(b.startDate));
+	return sorted.map((b, idx) => ({ ...b, status: idx === 0 ? 'Ready' : 'N/A' }));
+};
+
+const FermentationMonitoring = ({ onToggleMenu }) => {
+	useGlobalStyles(); // Inject global styles
+	
+	// Load batches similar to Dashboard
+	const defaultBatches = useMemo(() => ([
+		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', brix: 16.0, alcohol: 25.0, temperature: '32.0 C', timeInterval: '56:04:01' },
+		{ id: '002', startDate: '22/05/25', endDate: '25/05/25' },
+		{ id: '003', startDate: '25/05/25', endDate: '28/05/25' },
+		{ id: '004', startDate: '27/05/25', endDate: '30/05/25' },
+		{ id: '005', startDate: '30/05/25', endDate: '02/06/25' }
+	]), []);
+	
+	const batchesRaw = useMemo(() => {
+		try {
+			const saved = JSON.parse(localStorage.getItem('batches') || 'null');
+			return saved && Array.isArray(saved) && saved.length ? saved : defaultBatches;
+		} catch { return defaultBatches; }
+	}, [defaultBatches]);
+	
+	const batches = useMemo(() => computeStatuses(batchesRaw), [batchesRaw]);
+	const sortedBatches = useMemo(() =>
+		[...batches].sort((a,b) => (parseInt(a.id,10)||0) - (parseInt(b.id,10)||0)),
+		[batches]
+	);
+	
+	const [selectedId, setSelectedId] = useState(sortedBatches[0]?.id || '');
+	useEffect(()=>{ if (sortedBatches.length && !sortedBatches.find(b=>b.id===selectedId)) setSelectedId(sortedBatches[0].id); }, [sortedBatches, selectedId]);
+	
+	const selected = useMemo(() => sortedBatches.find(b => b.id === selectedId) || sortedBatches[0] || {}, [sortedBatches, selectedId]);
+	
+	// Generate monitoring data
+	const [monitoringData, setMonitoringData] = useState([]);
+	const [isLive, setIsLive] = useState(false);
+	
+	useEffect(() => {
+		const generateData = () => {
+			const data = [];
+			const baseTime = new Date();
+			baseTime.setHours(baseTime.getHours() - 12);
+			
+			for (let i = 0; i < 24; i++) {
+				const time = new Date(baseTime.getTime() + i * 30 * 60 * 1000); // 30-minute intervals
+				const timeStr = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+				
+				// Simulate realistic fermentation curves
+				const progress = i / 23;
+				const phBase = 4.2 - (progress * 0.8); // pH decreases over time
+				const alcoholBase = progress * 8; // Alcohol increases
+				const tempBase = 28 + Math.sin(progress * Math.PI) * 4; // Temperature varies
+				
+				data.push({
+					time: timeStr,
+					pH: Math.max(3.0, Math.min(5.0, phBase + (Math.random() - 0.5) * 0.3)),
+					alcohol: Math.max(0, Math.min(12, alcoholBase + (Math.random() - 0.5) * 1)),
+					temperature: Math.max(20, Math.min(35, tempBase + (Math.random() - 0.5) * 2))
+				});
+			}
+			setMonitoringData(data);
+		};
+		
+		generateData();
+	}, [selectedId]);
+	
+	// Live updates
+	useEffect(() => {
+		if (!isLive) return;
+		const interval = setInterval(() => {
+			setMonitoringData(prev => prev.map(point => ({
+				...point,
+				pH: Math.max(3.0, Math.min(5.0, point.pH + (Math.random() - 0.5) * 0.1)),
+				alcohol: Math.max(0, Math.min(12, point.alcohol + (Math.random() - 0.5) * 0.2)),
+				temperature: Math.max(20, Math.min(35, point.temperature + (Math.random() - 0.5) * 0.5))
+			})));
+		}, 2000);
+		return () => clearInterval(interval);
+	}, [isLive]);
+	
+	const isReady = selected?.status === 'Ready';
+	const analysisText = isReady 
+		? 'Fermentation is progressing normally. All parameters are within optimal ranges.'
+		: 'Monitoring data is simulated. Start fermentation to see real-time data.';
+
+	return (
+		<div className="fermentation-monitoring-page" style={commonStyles.pageContainer}>
+			<Header title="Fermentation Monitoring" onToggleMenu={onToggleMenu} />
+			
+			<div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, padding: '0 24px 24px' }}>
+				{/* Main Chart Area */}
+				<div className="ux-card" style={{ background: '#fff', padding: 24, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+						<div>
+							<div style={{ fontSize: 24, fontWeight: 800, color: '#111' }}>Batch {selected?.id || '—'}</div>
+							<div style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
+								Started: {selected?.startDate || '—'} • Duration: {selected?.startDate ? Math.ceil((Date.now() - parseDMY(selected.startDate)) / (1000 * 60 * 60 * 24)) : 0} days
+							</div>
+						</div>
+						<div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+							<select value={selectedId} onChange={(e)=>setSelectedId(e.target.value)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e0e0e0' }}>
+								{sortedBatches.map(b => {
+									const label = String(parseInt(b.id,10)||0).toString().padStart(3,'0');
+									return <option key={b.id} value={b.id}>Batch {label}</option>;
+								})}
+							</select>
+							<button 
+								onClick={() => setIsLive(!isLive)} 
+								className="ux-pressable"
+								style={{ 
+									padding: '8px 16px', 
+									borderRadius: 8, 
+									border: '1px solid #e0e0e0', 
+									background: isLive ? '#16a34a' : '#fff', 
+									color: isLive ? '#fff' : '#111',
+									cursor: 'pointer',
+									fontWeight: 700
+								}}
+							>
+								{isLive ? '● Live' : 'Start Live'}
+							</button>
+						</div>
+					</div>
+					
+					<div style={{ height: 400, width: '100%' }}>
+						<ResponsiveContainer>
+							<LineChart data={monitoringData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+								<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+								<XAxis dataKey="time" stroke="#666" fontSize={12} />
+								<YAxis stroke="#666" fontSize={12} />
+								<Tooltip 
+									contentStyle={{ 
+										background: '#fff', 
+										border: '1px solid #e0e0e0', 
+										borderRadius: 8, 
+										boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
+									}} 
+								/>
+								<Legend />
+								<Line type="monotone" dataKey="pH" stroke="#e11d48" strokeWidth={2} dot={{ fill: '#e11d48', strokeWidth: 2, r: 3 }} name="pH Level" />
+								<Line type="monotone" dataKey="alcohol" stroke="#2563eb" strokeWidth={2} dot={{ fill: '#2563eb', strokeWidth: 2, r: 3 }} name="Alcohol %" />
+								<Line type="monotone" dataKey="temperature" stroke="#16a34a" strokeWidth={2} dot={{ fill: '#16a34a', strokeWidth: 2, r: 3 }} name="Temperature °C" />
+							</LineChart>
+						</ResponsiveContainer>
+					</div>
+				</div>
+				
+				{/* Side Panel */}
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+					{/* Parameters Legend */}
+					<div className="ux-card" style={{ background: '#fff', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+						<div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 12 }}>Parameters</div>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+							{[
+								{ color: '#e11d48', label: 'pH Level', range: '3.5 - 4.5' },
+								{ color: '#2563eb', label: 'Alcohol Content', range: '0 - 12%' },
+								{ color: '#16a34a', label: 'Temperature', range: '28 - 32°C' }
+							].map((param, i) => (
+								<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+									<div style={{ width: 16, height: 16, background: param.color, borderRadius: 4 }} />
+									<div style={{ flex: 1 }}>
+										<div style={{ fontWeight: 700, color: '#111' }}>{param.label}</div>
+										<div style={{ fontSize: 12, color: '#666' }}>Optimal: {param.range}</div>
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+					
+					{/* Current Values */}
+					<div className="ux-card" style={{ background: '#fff', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+						<div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 12 }}>Current Values</div>
+						{monitoringData.length > 0 && (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+								{[
+									{ label: 'pH', value: monitoringData[monitoringData.length - 1]?.pH?.toFixed(2) || '—', color: '#e11d48' },
+									{ label: 'Alcohol', value: `${monitoringData[monitoringData.length - 1]?.alcohol?.toFixed(1) || '—'}%`, color: '#2563eb' },
+									{ label: 'Temperature', value: `${monitoringData[monitoringData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' }
+								].map((item, i) => (
+									<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8f9fa', borderRadius: 8 }}>
+										<span style={{ color: '#666', fontWeight: 600 }}>{item.label}</span>
+										<span style={{ color: item.color, fontWeight: 800, fontSize: 16 }}>{item.value}</span>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
+					
+					{/* Analysis */}
+					<div className="ux-card" style={{ background: isReady ? '#e8f5e8' : '#fee2e2', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+						<div style={{ fontSize: 18, fontWeight: 800, color: isReady ? '#1b5e20' : '#7f1d1d', marginBottom: 8 }}>Analysis</div>
+						<div style={{ display: 'flex', gap: 10 }}>
+							<div style={{ width: 20, height: 20, background: isReady ? '#16a34a' : '#e11d48', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>
+								{isReady ? '✓' : '!'}
+							</div>
+							<div style={{ color: isReady ? '#065f46' : '#7f1d1d', fontWeight: 600, fontSize: 14 }}>{analysisText}</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+};
+
+export default FermentationMonitoring;

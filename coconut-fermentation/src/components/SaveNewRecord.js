@@ -1,162 +1,402 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import Header from './Header';
+import { commonStyles, useGlobalStyles } from './styles/GlobalStyles';
 
-const SaveNewRecord = () => {
-  const [formData, setFormData] = useState({
-    brix: '16.0',
-    alcoholContent: '25.0',
-    temperature: '32.0',
-    timeInterval: '56:04:01',
-    logDate: '20/05/25'
-  });
+// Backend API base URL: override via REACT_APP_API_BASE, defaults to Flask on :5000
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSave = () => {
-    // Handle save logic here
-    console.log('Saving record:', formData);
-    // You can add navigation or success message here
-  };
-
-  return (
-    <div className="save-new-record">
-      {/* Header */}
-      <div className="header">
-        <div className="logo-section">
-          <div className="logo">
-            <div className="champagne-flutes">
-              <div className="flute left"></div>
-              <div className="flute right"></div>
-            </div>
-          </div>
-          <h1>Save New Record</h1>
-        </div>
-        <div className="header-right">
-          <div className="hamburger-menu">☰</div>
-        </div>
-      </div>
-
-      <div className="main-content">
-        {/* Left Column - Production Details */}
-        <div className="left-column">
-          <div className="production-details">
-            <h2>Production Details</h2>
-            
-            <div className="batch-number-tag">
-              <span>Batch Number: 001</span>
-            </div>
-
-            <div className="input-fields">
-              <div className="input-group">
-                <label>Brix (sugar):</label>
-                <input
-                  type="text"
-                  name="brix"
-                  value={formData.brix}
-                  onChange={handleInputChange}
-                  className="input-field"
-                />
-              </div>
-
-              <div className="input-group">
-                <label>Alcohol Content:</label>
-                <input
-                  type="text"
-                  name="alcoholContent"
-                  value={formData.alcoholContent}
-                  onChange={handleInputChange}
-                  className="input-field"
-                />
-              </div>
-
-              <div className="input-group">
-                <label>Temperature:</label>
-                <input
-                  type="text"
-                  name="temperature"
-                  value={formData.temperature}
-                  onChange={handleInputChange}
-                  className="input-field"
-                />
-              </div>
-
-              <div className="input-group">
-                <label>Time Interval:</label>
-                <input
-                  type="text"
-                  name="timeInterval"
-                  value={formData.timeInterval}
-                  onChange={handleInputChange}
-                  className="input-field"
-                />
-              </div>
-
-              <div className="input-group">
-                <label>Log Date:</label>
-                <input
-                  type="text"
-                  name="logDate"
-                  value={formData.logDate}
-                  onChange={handleInputChange}
-                  className="input-field"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column - Analysis, Forecast, Timeline */}
-        <div className="right-column">
-          <div className="analysis-panel">
-            <h3>Analysis</h3>
-            <p>
-              Based on the input parameters, the <strong className="highlight">tuba is ready for distillation</strong>
-            </p>
-          </div>
-
-          <div className="production-forecast-panel">
-            <h3>Production Forecast</h3>
-            <div className="forecast-item">
-              <span>Estimated Volume: <strong className="highlight">18.6 L</strong></span>
-            </div>
-            <div className="forecast-item">
-              <span>Estimated Profit: <strong className="highlight">₱4,092.00</strong></span>
-            </div>
-          </div>
-
-          <div className="fermentation-timeline-panel">
-            <h3>Fermentation Timeline</h3>
-            <div className="timeline-item">
-              <span>Start Date: <strong className="highlight">20/05/25</strong></span>
-            </div>
-            <div className="timeline-item">
-              <span>End Date: <strong className="highlight">22/05/25</strong></span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Save Button */}
-      <div className="save-button-container">
-        <button className="save-button" onClick={handleSave}>
-          Save Record
-        </button>
-      </div>
-
-      {/* Navigation Links */}
-      <div className="navigation-links">
-        <Link to="/" className="nav-link">Back to Dashboard</Link>
-        <Link to="/record-summary" className="nav-link">View Record Summary</Link>
-        <Link to="/fermentation-monitoring" className="nav-link">Monitor Fermentation</Link>
-      </div>
-    </div>
-  );
+// Helpers
+const parseDMY = (d) => {
+	if (!d) return new Date(0);
+	const [dd, mm, yy] = d.split('/');
+	const year = Number(yy) + 2000; // '25' -> 2025
+	return new Date(year, Number(mm) - 1, Number(dd));
 };
 
-export default SaveNewRecord; 
+const formatDMY = (date) => {
+	const dd = String(date.getDate()).padStart(2, '0');
+	const mm = String(date.getMonth() + 1).padStart(2, '0');
+	const yy = String(date.getFullYear()).slice(-2);
+	return `${dd}/${mm}/${yy}`;
+};
+
+const addDays = (dateStr, days) => {
+	const dt = parseDMY(dateStr);
+	dt.setDate(dt.getDate() + days);
+	return formatDMY(dt);
+};
+
+const computeStatuses = (list) => {
+	const sorted = [...list].sort((a, b) => parseDMY(a.startDate) - parseDMY(b.startDate));
+	return sorted.map((b, idx) => ({ ...b, status: idx === 0 ? 'Ready' : 'N/A' }));
+};
+
+const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
+	useGlobalStyles(); // Inject global styles
+	
+	const [formData, setFormData] = useState({ 
+		brix: '16.0', 
+		alcoholContent: '25.0', 
+		temperature: '32', 
+		producedLiters: '', 
+		timeInterval: '56:04:01', 
+		logDate: '20/05/25' 
+	});
+	
+	const [saving, setSaving] = useState(false);
+	const [saveError, setSaveError] = useState('');
+	const firstInvalidRef = useRef(null);
+	
+	// Autosave draft
+	useEffect(()=>{ 
+		try { 
+			const saved = JSON.parse(localStorage.getItem('saveDraft')||'null'); 
+			if (saved && typeof saved==='object') setFormData(prev=>({...prev, ...saved})); 
+		} catch {} 
+	},[]);
+	
+	useEffect(()=>{ 
+		try { 
+			localStorage.setItem('saveDraft', JSON.stringify(formData)); 
+		} catch {} 
+	}, [formData]);
+	
+	const [toast, setToast] = useState({ open: false, message: '', tone: 'success' });
+	const [confirmOpen, setConfirmOpen] = useState(false);
+	const confirmActionRef = useRef(null);
+	
+	const showToast = (message, tone = 'success') => {
+		setToast({ open: true, message, tone });
+		setTimeout(() => setToast(prev => ({ ...prev, open: false })), 2500);
+	};
+	
+	const handleInputChange = (e) => {
+		const { name, value } = e.target;
+		if (name === 'temperature') {
+			const digits = String(value).replace(/[^0-9]/g, '');
+			setFormData(prev => ({ ...prev, temperature: digits }));
+			return;
+		}
+		if (name === 'producedLiters') {
+			// allow decimals; sanitize to digits and one dot
+			const cleaned = String(value).replace(/[^0-9.]/g, '').replace(/(\..*)\./, '$1');
+			setFormData(prev => ({ ...prev, producedLiters: cleaned }));
+			return;
+		}
+		setFormData(prev => ({ ...prev, [name]: value }));
+	};
+	
+	const stepField = (key, delta) => {
+		setFormData(prev => {
+			const raw = String(prev[key] || '0').replace(/[^0-9.]/g, '');
+			const num = parseFloat(raw);
+			const next = Number.isFinite(num) ? num + delta : delta;
+			const fixed = key === 'temperature' ? String(Math.max(0, Math.round(next))) : String(Math.max(0, parseFloat(next.toFixed(1))));
+			return { ...prev, [key]: fixed };
+		});
+	};
+	
+	const inputBox = (label, name, value, helper) => (
+		<div className="inputRow" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+			<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+				<label style={{ color: '#6b7280', fontWeight: 800, minWidth: 140 }}>{label}</label>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, maxWidth: 350 }}>
+					{name === 'logDate' ? (
+						<input
+							name="logDate"
+							type="date"
+							value={(function(){
+								try {
+									const d = parseDMY(value || formatDMY(new Date()));
+									const y = d.getFullYear();
+									const m = String(d.getMonth()+1).padStart(2,'0');
+									const dd = String(d.getDate()).padStart(2,'0');
+									return `${y}-${m}-${dd}`;
+								} catch { return ''; }
+							})()}
+							onChange={(e)=>{
+								const iso = e.target.value; // YYYY-MM-DD
+								if (!iso) return;
+								const [Y,M,D] = iso.split('-');
+								const yy = String(Y).slice(-2);
+								const dmy = `${D}/${M}/${yy}`;
+								setFormData(prev=>({ ...prev, logDate: dmy }));
+							}}
+							className="ux-focus"
+							style={{ flex: 1, padding: '14px 12px', borderRadius: 12, border: '1px solid #e5e7eb', background: '#f6f7f7', textAlign: 'right', fontSize: 16, color: '#333' }}
+						/>
+					) : (
+						<>
+							<button type="button" onClick={() => stepField(name, -1)} className="ux-pressable" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>-</button>
+							<input
+								name={name}
+								value={value}
+								onChange={handleInputChange}
+								type={'text'}
+								step={name === 'temperature' ? '1' : undefined}
+								min={name === 'temperature' ? '0' : undefined}
+								ref={helper && helper.valid===false && !firstInvalidRef.current ? firstInvalidRef : undefined}
+								aria-invalid={helper ? helper.valid===false : undefined}
+								className={name === 'temperature' ? 'ux-focus no-spin' : 'ux-focus'}
+								style={commonStyles.inputField}
+							/>
+							<button type="button" onClick={() => stepField(name, 1)} className="ux-pressable" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>+</button>
+						</>
+					)}
+				</div>
+			</div>
+			{helper && (
+				<div style={{ alignSelf: 'flex-end', maxWidth: 350, color: helper.valid===false ? '#b91c1c' : '#6b7280', fontSize: 12 }}>
+					{helper.text}
+				</div>
+			)}
+		</div>
+	);
+
+	// Real-time analysis based on current inputs (simple rule-of-thumb)
+	const analysis = useMemo(() => {
+		const brix = parseFloat(formData.brix);
+		const alcohol = parseFloat(formData.alcoholContent);
+		const temp = parseFloat(formData.temperature);
+		const okBrix = Number.isFinite(brix) && brix >= 15; // target >= 15
+		const okAlcohol = Number.isFinite(alcohol) && alcohol >= 20; // target >= 20
+		const okTemp = Number.isFinite(temp) && temp >= 28 && temp <= 35; // optimal window
+		const ready = okBrix && okAlcohol && okTemp;
+		const reasons = [];
+		if (!okBrix) reasons.push('Brix below target');
+		if (!okAlcohol) reasons.push('Alcohol below target');
+		if (!okTemp) reasons.push('Temperature out of range');
+		return {
+			ready,
+			statusText: ready ? 'tuba is ready for distillation' : 'tuba is not yet ready for distillation',
+			reasons
+		};
+	}, [formData]);
+
+	// Animate panels on mount
+	useEffect(() => {
+		const root = document.querySelector('.save-record');
+		if (!root) return;
+		const panels = root.querySelectorAll('.panel');
+		panels.forEach((el, idx) => {
+			setTimeout(() => el.classList.add('enter'), idx * 70);
+		});
+	}, []);
+
+	// Completion meter and validation
+	const completed = ['brix','alcoholContent','temperature','timeInterval','logDate'].reduce((n,k)=>n + (String(formData[k]||'').trim()?1:0), 0);
+	const total = 5;
+	const brixNum = parseFloat(formData.brix);
+	const alcNum = parseFloat(formData.alcoholContent);
+	const tempNum = parseFloat(formData.temperature);
+	const reqOk = (Number.isFinite(brixNum) && brixNum>=15) && (Number.isFinite(alcNum) && alcNum>=20) && (Number.isFinite(tempNum) && tempNum>=28 && tempNum<=35) && String(formData.logDate||'').trim();
+	
+	const helpers = {
+		brix: { text: 'Target ≥ 15 °Bx', valid: Number.isFinite(brixNum) ? brixNum>=15 : undefined },
+		alcoholContent: { text: 'Target ≥ 20 %', valid: Number.isFinite(alcNum) ? alcNum>=20 : undefined },
+		temperature: { text: 'Optimal 28–35 °C', valid: Number.isFinite(tempNum) ? (tempNum>=28 && tempNum<=35) : undefined },
+		producedLiters: { text: 'Optional (e.g., 21.5 L)', valid: undefined },
+		timeInterval: { text: 'e.g., 56:04:01', valid: String(formData.timeInterval||'').trim()?true:undefined },
+		logDate: { text: 'Required', valid: String(formData.logDate||'').trim()?true:false }
+	};
+
+	useEffect(()=>{
+		const onKey = (e) => { if (e.key==='Enter' && reqOk && !saving) handleSave(); };
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	}, [reqOk, saving]);
+
+	const getNextId = () => {
+		try {
+			const arr = JSON.parse(localStorage.getItem('batches') || '[]');
+			const max = arr.reduce((m, b) => {
+				const n = parseInt(b.id, 10);
+				return Number.isFinite(n) && n > m ? n : m;
+			}, 0);
+			const next = max + 1;
+			return { num: next, str: String(next).padStart(3, '0') };
+		} catch {
+			return { num: 1, str: '001' };
+		}
+	};
+	const nextId = getNextId();
+
+	const handleSave = async () => {
+		try {
+			setSaveError('');
+			if (!reqOk) { if (firstInvalidRef.current) firstInvalidRef.current.focus(); return; }
+			setSaving(true);
+			const existing = JSON.parse(localStorage.getItem('batches') || '[]');
+			const fresh = getNextId();
+			const start = formData.logDate || formatDMY(new Date());
+			// Estimate completion within 3–5 days. Use 4 days as midpoint.
+			const end = addDays(start, 4);
+			const newRec = {
+				id: fresh.str,
+				startDate: start,
+				endDate: end,
+				brix: formData.brix || 'N/A',
+				alcohol: formData.alcoholContent || 'N/A',
+				temperature: formData.temperature ? `${parseInt(formData.temperature, 10)} C` : 'N/A',
+				timeInterval: formData.timeInterval || 'N/A',
+				produced: formData.producedLiters ? `${parseFloat(formData.producedLiters)} L` : undefined
+			};
+
+			// Attempt to persist through Flask API; fallback to localStorage if offline
+			try {
+				await fetch(`${API_BASE}/api/batches`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(newRec)
+				});
+			} catch {}
+			const updated = computeStatuses([...existing, newRec]);
+			localStorage.setItem('batches', JSON.stringify(updated));
+
+			// update liters chart based on manual Produced Liters (fallback to brix-based estimate)
+			const label = (()=>{ const d = parseDMY(start); const m = d.toLocaleString('en-US',{month:'short'}); const day = String(d.getDate()).padStart(2,'0'); return `${m}-${day}`; })();
+			let liters = parseFloat(formData.producedLiters);
+			if (!Number.isFinite(liters)) {
+				const brixNum = parseFloat(formData.brix);
+				if (Number.isFinite(brixNum)) liters = Math.max(0, Math.round(brixNum*3));
+			}
+			if (Number.isFinite(liters)) {
+				const seedL = JSON.parse(localStorage.getItem('chart_liters')||'[]');
+				const upL = Array.isArray(seedL)? seedL.filter(r=>r.date!==label).concat([{date:label, liters}]):[{date:label, liters}];
+				localStorage.setItem('chart_liters', JSON.stringify(upL));
+			}
+			showToast(`Record saved (Batch ${fresh.str}). It will appear in the batch list.`, 'success');
+			if (onNavigate) {
+				setTimeout(() => onNavigate('dashboard'), 1200);
+			}
+		} catch (e) {
+			console.error(e);
+			setSaveError('Network error. Please try again.');
+			showToast('Failed to save record.', 'error');
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const handleReset = () => {
+		// open custom confirm
+		confirmActionRef.current = () => {
+			localStorage.removeItem('batches');
+			const seedLiters = [
+				{ date: 'May-22', liters: 26 },
+				{ date: 'May-25', liters: 28 },
+				{ date: 'May-27', liters: 22 },
+				{ date: 'May-29', liters: 39 },
+				{ date: 'May-31', liters: 26 },
+				{ date: 'Jun-02', liters: 45 },
+				{ date: 'Jun-05', liters: 41 },
+				{ date: 'Jun-07', liters: 38 },
+				{ date: 'Jun-10', liters: 40 },
+				{ date: 'Jun-12', liters: 31 },
+				{ date: 'Jun-16', liters: 38 }
+			];
+			const seedSales = [
+				{ date: 'May-22', sales: 1500 },
+				{ date: 'May-25', sales: 1550 },
+				{ date: 'May-27', sales: 1600 },
+				{ date: 'May-29', sales: 1700 },
+				{ date: 'May-31', sales: 900 },
+				{ date: 'Jun-02', sales: 950 },
+				{ date: 'Jun-05', sales: 1600 },
+				{ date: 'Jun-07', sales: 1700 },
+				{ date: 'Jun-10', sales: 1800 },
+				{ date: 'Jun-12', sales: 1900 },
+				{ date: 'Jun-16', sales: 2000 }
+			];
+			localStorage.setItem('chart_liters', JSON.stringify(seedLiters));
+			localStorage.setItem('chart_sales', JSON.stringify(seedSales));
+			showToast('Batches reset.', 'success');
+			onNavigate && onNavigate('dashboard');
+			setConfirmOpen(false);
+		};
+		setConfirmOpen(true);
+	};
+
+	return (
+		<div className="save-record" style={commonStyles.pageContainer}>
+			<Header title="Save New Record" onToggleMenu={onToggleMenu} />
+			<div className="detailsGrid" style={commonStyles.detailsGrid}>
+				<div className="panel" style={{ background: '#fff', padding: 24, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+					<div style={{ fontSize: 28, fontWeight: 800, color: '#111', marginBottom: 12 }}>Production Details</div>
+					<div style={{ display:'flex', alignItems:'center', gap:10, margin:'6px 0 16px' }}>
+						<div className="ux-meter" style={{ flex:1 }}><div className="ux-meter-bar" style={{ width: `${Math.round((completed/Math.max(1,total))*100)}%` }} /></div>
+						<div style={{ fontSize:12, color:'#166534', fontWeight:800 }}>{completed}/{total}</div>
+					</div>
+					<div style={{ background: '#f1f2f4', display: 'inline-block', padding: '8px 14px', borderRadius: 10, marginBottom: 18, color: '#333', fontWeight: 700 }}>Batch Number: {nextId.str}</div>
+					<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+						{inputBox('Brix (sugar)', 'brix', formData.brix, helpers.brix)}
+						{inputBox('Alcohol Content', 'alcoholContent', formData.alcoholContent, helpers.alcoholContent)}
+						{inputBox('Temperature', 'temperature', formData.temperature, helpers.temperature)}
+						{inputBox('Time Interval:', 'timeInterval', formData.timeInterval, helpers.timeInterval)}
+						{inputBox('Produced Liters', 'producedLiters', formData.producedLiters, helpers.producedLiters)}
+						{inputBox('Log Date:', 'logDate', formData.logDate, helpers.logDate)}
+					</div>
+				</div>
+				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Real-time Analysis</div>
+						<div style={{ color: analysis.ready ? '#065f46' : '#7f1d1d', fontWeight: 800 }}>
+							Based on the input parameters, the <span style={{ color: analysis.ready ? '#16a34a' : '#e11d48' }}>{analysis.statusText}</span>
+						</div>
+						{!analysis.ready && analysis.reasons.length > 0 && (
+							<ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 18, color: '#333' }}>
+								{analysis.reasons.map((r, i) => (<li key={i}>{r}</li>))}
+							</ul>
+						)}
+					</div>
+					<div className="panel" style={{ background: '#e8f5e8', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+						<div style={{ fontSize: 20, fontWeight: 800, color: '#1b5e20', marginBottom: 6 }}>Fermentation Timeline</div>
+						<div style={{ background: '#eaf6ea', border: '2px solid #cfe3cf', borderRadius: 12, overflow: 'hidden' }}>
+							<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+								<div style={{ padding: 14, background: '#ffffff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf', color: '#065f46', fontWeight: 800 }}>Start Date</div>
+								<div style={{ padding: 14, background: '#ffffff', borderBottom: '1px solid #cfe3cf', textAlign: 'right', color: '#16a34a', fontWeight: 900 }}>{formData.logDate}</div>
+								<div style={{ padding: 14, background: '#ffffff', borderRight: '1px solid #cfe3cf', color: '#065f46', fontWeight: 800 }}>End Date</div>
+								<div style={{ padding: 14, background: '#ffffff', textAlign: 'right', color: '#16a34a', fontWeight: 900 }}>{addDays(formData.logDate, 4)}</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div style={{ display: 'flex', justifyContent: 'center', gap: 12, margin: '24px 0 40px' }}>
+				<button disabled={!reqOk || saving} title={!reqOk? 'Fill required fields to save' : ''} className="pressable" onClick={handleSave} style={{ ...commonStyles.primaryButton, background: !reqOk ? '#a7f3d0' : '#16a34a', cursor: !reqOk? 'not-allowed':'pointer' }}>
+					{saving && <span className="ux-skeleton" style={{ width:18, height:18, borderRadius:'50%' }} />}
+					Save Record
+				</button>
+				<button className="pressable" onClick={handleReset} style={commonStyles.secondaryButton}>
+					Reset
+				</button>
+			</div>
+			{saveError && (
+				<div style={{ textAlign:'center', color:'#b91c1c', fontWeight:800, marginTop:-24, marginBottom:24 }}>
+					{saveError} <button onClick={handleSave} style={{ background:'transparent', border:'none', color:'#16a34a', cursor:'pointer' }}>Retry</button>
+				</div>
+			)}
+			{/* Toast notification */}
+			{toast.open && (
+				<div style={{ ...commonStyles.toast, ...(toast.tone==='error'?commonStyles.errorToast:commonStyles.successToast) }}>
+					{toast.message}
+				</div>
+			)}
+			{/* Confirm modal */}
+			{confirmOpen && (
+				<div style={commonStyles.modalOverlay}>
+					<div style={commonStyles.modalContent}>
+						<div style={{ fontWeight: 900, color: '#065f46', marginBottom: 8 }}>Confirm</div>
+						<div style={{ color: '#111', marginBottom: 16 }}>Reset all batches and dashboard?</div>
+						<div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+							<button onClick={() => setConfirmOpen(false)} style={{ background: '#ffffff', border: '2px solid #e5e7eb', color: '#374151', padding: '10px 16px', borderRadius: 10, fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+							<button onClick={() => { if (confirmActionRef.current) confirmActionRef.current(); }} style={{ background: '#16a34a', border: 'none', color: '#ffffff', padding: '10px 18px', borderRadius: 10, fontWeight: 900, cursor: 'pointer' }}>OK</button>
+						</div>
+					</div>
+				</div>
+			)}
+		</div>
+	);
+};
+
+export default SaveNewRecord;

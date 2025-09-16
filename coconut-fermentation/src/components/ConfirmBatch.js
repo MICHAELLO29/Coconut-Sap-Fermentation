@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 
-const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
+const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
   // Inject scoped styles and animations
   useEffect(() => {
     const style = document.createElement('style');
@@ -208,7 +208,7 @@ const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
           <img src="/DashboardIcon.png" alt="Logo" style={{ width: 36, height: 36 }} />
           <h1 style={{ color: '#4CAF50', fontSize: 28, fontWeight: 700, margin: 0 }}>Confirm Batch</h1>
         </div>
-        <div onClick={onOpenMenu} title="menu" style={{ cursor: 'pointer' }}>
+        <div onClick={onToggleMenu} title="menu" style={{ cursor: 'pointer' }}>
           <div style={{ width: 36, height: 6, background: '#bdbdbd', borderRadius: 6, marginBottom: 6 }} />
           <div style={{ width: 36, height: 6, background: '#bdbdbd', borderRadius: 6, marginBottom: 6 }} />
           <div style={{ width: 36, height: 6, background: '#bdbdbd', borderRadius: 6 }} />
