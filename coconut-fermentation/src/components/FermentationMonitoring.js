@@ -468,8 +468,13 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 												{formatDuration(session.duration)}
 											</div>
 										</div>
-										<div style={{ fontSize: 10, color: '#666', marginTop: 2 }}>
-											{session.startTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+										<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+											<div style={{ fontSize: 10, color: '#666' }}>
+												{session.startTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+											</div>
+											<div style={{ fontSize: 10, fontWeight: 600, color: '#0f766e' }}>
+												Batch {session.batchId}
+											</div>
 										</div>
 									</div>
 								))}
