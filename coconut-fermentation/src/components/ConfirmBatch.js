@@ -136,7 +136,7 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
 
       if (data.batch_id) {
         alert(`Batch ${data.batch_id} started`);
-        onNavigate("fermentation-monitoring");
+        onNavigate("fermentation-monitoring", { autoStartLive: true });
       }
     } catch (error) {
       console.error("Error creating batch:", error);
@@ -153,6 +153,53 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
   if (typeof val === "number") return !isNaN(val);
   if (typeof val === "string") return val.trim() !== "";
   return false;
+  };
+
+  // Removes all input on fields and localStorage (prevents loading previous draft)
+  const resetConfirm = async () => {
+    setFormData({
+      angle: '',
+      sg: '',
+      brix: '',
+      temperature: '',
+      ph: '',
+      liter: ''
+    });
+
+    localStorage.removeItem('confirmBatchDraft');
+  };
+
+  // Stops batch if active (set is_logging = 0)
+  const stopBatch = async () => {
+    // formats BatchId to 3 digits (e.g., 1 → 001)
+    const activeBatch_formatted = activeBatch.toString().padStart(3, '0');
+
+    try {
+      // Checks if batchId is active
+      const checkRes = await fetch(`http://localhost:5000/check_active/${activeBatch_formatted}`);
+      const checkData = await checkRes.json();
+      console.log(`batch id: ${activeBatch_formatted}`, checkData);
+
+      if (!checkData.active) {
+        alert(`Batch ${activeBatch} is not active or already stopped.`);
+        console.log(`Previous active batch: ${activeBatch}`);
+        return;
+      }
+
+      // Stops the batch if active
+      const stopRes = await fetch(`http://localhost:5000/stop_batch/${activeBatch_formatted}`, {
+        method: "POST"
+      });
+      const stopData = await stopRes.json();
+
+      if (stopData.status === "batch_stopped") {
+        alert(`Batch ${activeBatch} has been stopped.`);
+        setActiveBatch(null);
+      }
+    } catch (err) {
+      console.error("Error stopping batch:", err);
+      alert("Failed to stop batch. Check server logs.");
+    }
   };
 
   // Dates
@@ -211,7 +258,7 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
           <img src="/DashboardIcon.png" alt="Logo" style={{ width: 36, height: 36 }} />
-          <h1 style={{ color: '#4CAF50', fontSize: 28, fontWeight: 700, margin: 0 }}>Confirm Batch</h1>
+          <h1 style={{ color: '#0ba376ff', fontSize: 28, fontWeight: 700, margin: 0 }}>Confirm Batch</h1>
         </div>
       </div>
 
@@ -242,20 +289,57 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
                 { label: 'Liter (L)', name: 'liter', readOnly: false }
               ].map((field, idx) => (
                 <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {/* Label text on the left */}
+                  <label
+                    htmlFor={field.name}
+                    style={{
+                      minWidth: 120,          // adjust width to your liking
+                      textAlign: 'right',
+                      fontWeight: 700,
+                      fontSize: 14,
+                      color: '#374151'        // a neutral gray
+                  }}
+                >
+                  {field.label}:
+                </label>
+                  {/* Input with checkmark */}
                   {loading && field.readOnly ? (
                     <div className="cb-skeleton" style={{ flex:1, height:48, borderRadius:10 }} />
                   ) : (
-                  <input
-                    placeholder={field.label}
-                    name={field.name}
-                    value={formData[field.name]}
-                    onChange={handleInputChange}
-                    readOnly={field.readOnly}
-                    ref={!hasValue(formData[field.name]) && !field.readOnly ? firstEmptyRef : undefined}
-                    className="cb-focus"
-                    style={{ flex: 1, padding: '16px 14px', borderRadius: 10, border: '1px solid #e5e7eb', background: '#f9fafb', fontSize: 14 }}
-                  />)}
-                  <div title={hasValue(formData[field.name]) ? 'Complete' : 'Missing'} style={{ width: 24, height: 24, borderRadius: 6, border: `2px solid ${hasValue(formData[field.name]) ? '#16a34a' : '#e5e7eb'}`, background: hasValue(formData[field.name]) ? '#e8f5e8' : '#ffffff', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, transition:'transform 150ms ease', transform: hasValue(formData[field.name]) ? 'scale(1)' : 'scale(.9)' }}>
+                    <input
+                      name={field.name}
+                      value={formData[field.name] ?? ""}
+                      onChange={handleInputChange}
+                      readOnly={field.readOnly}
+                      ref={!hasValue(formData[field.name]) && !field.readOnly ? firstEmptyRef : undefined}
+                      className="cb-focus"
+                      style={{
+                        flex: 1,
+                        padding: '16px 14px',
+                        borderRadius: 10,
+                        border: '1px solid #e5e7eb',
+                        background: '#f9fafb',
+                        fontSize: 14
+                      }}
+                    />
+                  )}
+                  <div
+                    title={hasValue(formData[field.name]) ? 'Complete' : 'Missing'}
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 6,
+                      border: `2px solid ${hasValue(formData[field.name]) ? '#16a34a' : '#e5e7eb'}`,
+                      background: hasValue(formData[field.name]) ? '#e8f5e8' : '#ffffff',
+                      color: '#16a34a',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 900,
+                      transition: 'transform 150ms ease',
+                      transform: hasValue(formData[field.name]) ? 'scale(1)' : 'scale(.9)'
+                    }}
+                  >
                     {hasValue(formData[field.name]) ? '✓' : ''}
                   </div>
                 </div>
@@ -310,7 +394,7 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
         {/* Bottom: centered CTA */}
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
           {activeBatch ? (
-            <div style={{ color: "red", fontWeight: 600}}>
+            <div style={{minWidth: 260, background: '#db2222ff', color: "#ffffff", fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, boxShadow: '0 6px 16px rgba(219,34,34,0.25)' }}>
               Batch is {activeBatch} is currently active
               </div>
           ) : (
@@ -318,6 +402,12 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
             Confirm & Start
           </button>
           )}
+          <button onClick={resetConfirm} style={{ minWidth: 260, marginLeft: 16, background: '#a5a5a5ff', color: '#000000', fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, cursor: 'pointer', boxShadow: '0 6px 16px rgba(22,163,74,0.25)'}}>
+            Reset Values
+          </button>
+          {activeBatch && (<button onClick={stopBatch} style={{ minWidth:260, marginLeft: 16, background: '#ff4040ff', color: '#ffffff', fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, cursor: 'pointer', boxShadow: '0 6px 16px rgba(255,64,64,0.25)' }}>
+            Stop Active Batch
+          </button>)}
         </div>
       </div>
     </div>
