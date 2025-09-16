@@ -27,20 +27,30 @@ const addDays = (dateStr, days) => {
 };
 
 const computeStatuses = (list) => {
-	const sorted = [...list].sort((a, b) => parseDMY(a.startDate) - parseDMY(b.startDate));
-	return sorted.map((b, idx) => ({ ...b, status: idx === 0 ? 'Ready' : 'N/A' }));
+	return list.map((b) => {
+		const brixNum = parseFloat(b.brix);
+		const alcoholNum = parseFloat(b.alcohol);
+		const tempStr = String(b.temperature || '');
+		const tempNum = parseFloat(tempStr.replace(/[^\d.]/g, ''));
+		
+		const isReady = Number.isFinite(brixNum) && brixNum >= 15 && 
+						Number.isFinite(alcoholNum) && alcoholNum >= 20 && 
+						Number.isFinite(tempNum) && tempNum >= 28 && tempNum <= 35;
+		
+		return { ...b, status: isReady ? 'Ready' : 'N/A' };
+	});
 };
 
 const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 	useGlobalStyles(); // Inject global styles
 	
 	const [formData, setFormData] = useState({ 
-		brix: '16.0', 
-		alcoholContent: '25.0', 
-		temperature: '32', 
+		brix: '', 
+		alcoholContent: '', 
+		temperature: '', 
 		producedLiters: '', 
-		timeInterval: '56:04:01', 
-		logDate: '20/05/25' 
+		timeInterval: '', 
+		logDate: formatDMY(new Date()) 
 	});
 	
 	const [saving, setSaving] = useState(false);
@@ -97,10 +107,26 @@ const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 	};
 	
 	const inputBox = (label, name, value, helper) => (
-		<div className="inputRow" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+		<div className="inputRow" style={{ 
+			display: 'flex', 
+			flexDirection: 'column', 
+			gap: 'var(--spacing-3)',
+			padding: 'var(--spacing-4)',
+			background: helper?.valid === false ? 'rgba(239, 68, 68, 0.05)' : 'rgba(255, 255, 255, 0.5)',
+			borderRadius: 'var(--radius-lg)',
+			border: `2px solid ${helper?.valid === false ? '#ef4444' : 'var(--color-gray-200)'}`,
+			transition: 'all var(--transition-fast)'
+		}}>
 			<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-				<label style={{ color: '#6b7280', fontWeight: 800, minWidth: 140 }}>{label}</label>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, maxWidth: 350 }}>
+				<label style={{ 
+					color: helper?.valid === false ? '#dc2626' : 'var(--color-gray-700)', 
+					fontWeight: 700, 
+					minWidth: 140,
+					fontSize: 'var(--font-size-sm)',
+					textTransform: 'uppercase',
+					letterSpacing: '0.05em'
+				}}>{label}</label>
+				<div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-2)', flex: 1, maxWidth: 350 }}>
 					{name === 'logDate' ? (
 						<input
 							name="logDate"
@@ -128,13 +154,18 @@ const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 					) : name === 'timeInterval' ? (
 						<input
 							name={name}
+							type="text"
 							value={value}
-							onChange={handleInputChange}
-							type={'text'}
-							ref={helper && helper.valid===false && !firstInvalidRef.current ? firstInvalidRef : undefined}
-							aria-invalid={helper ? helper.valid===false : undefined}
-							className="ux-focus"
-							style={commonStyles.inputField}
+							onChange={e => setFormData(prev => ({ ...prev, [name]: e.target.value }))}
+							style={{
+								...commonStyles.inputField,
+								borderColor: helper?.valid === false ? '#ef4444' : 'var(--color-gray-200)',
+								background: helper?.valid === false ? 'rgba(254, 242, 242, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+								boxShadow: helper?.valid === false ? '0 0 0 3px rgba(239, 68, 68, 0.1)' : 'var(--shadow-sm)'
+							}}
+							ref={helper?.valid === false ? firstInvalidRef : null}
+							aria-invalid={helper?.valid === false}
+							aria-describedby={helper?.message ? `${name}-error` : undefined}
 						/>
 					) : (
 						<>
@@ -156,9 +187,26 @@ const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 					)}
 				</div>
 			</div>
-			{helper && (
-				<div style={{ alignSelf: 'flex-end', maxWidth: 350, color: helper.valid===false ? '#b91c1c' : '#6b7280', fontSize: 12 }}>
-					{helper.text}
+			{helper && helper.message && (
+				<div 
+					id={`${name}-error`}
+					role={helper.valid === false ? 'alert' : 'status'}
+					aria-live={helper.valid === false ? 'assertive' : 'polite'}
+					style={{ 
+						fontSize: 'var(--font-size-sm)', 
+						color: helper.valid === false ? '#dc2626' : 'var(--color-primary-600)', 
+						fontWeight: 600, 
+						marginTop: 'var(--spacing-2)',
+						padding: 'var(--spacing-2) var(--spacing-3)',
+						background: helper.valid === false ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+						borderRadius: 'var(--radius-md)',
+						border: `1px solid ${helper.valid === false ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)'}`,
+						display: 'flex',
+						alignItems: 'center',
+						gap: 'var(--spacing-2)'
+					}}>
+					<span aria-hidden="true">{helper.valid === false ? '⚠️' : '✅'}</span>
+					{helper.message}
 				</div>
 			)}
 		</div>
@@ -200,12 +248,24 @@ const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 	const brixNum = parseFloat(formData.brix);
 	const alcNum = parseFloat(formData.alcoholContent);
 	const tempNum = parseFloat(formData.temperature);
-	const reqOk = (Number.isFinite(brixNum) && brixNum>=15) && (Number.isFinite(alcNum) && alcNum>=20) && (Number.isFinite(tempNum) && tempNum>=28 && tempNum<=35) && String(formData.logDate||'').trim();
+	const reqOk = Number.isFinite(brixNum) && Number.isFinite(alcNum) && Number.isFinite(tempNum) && String(formData.logDate||'').trim();
 	
 	const helpers = {
-		brix: { text: 'Target ≥ 15 °Bx', valid: Number.isFinite(brixNum) ? brixNum>=15 : undefined },
-		alcoholContent: { text: 'Target ≥ 20 %', valid: Number.isFinite(alcNum) ? alcNum>=20 : undefined },
-		temperature: { text: 'Optimal 28–35 °C', valid: Number.isFinite(tempNum) ? (tempNum>=28 && tempNum<=35) : undefined },
+		brix: { 
+			text: 'Target ≥ 15 °Bx', 
+			valid: Number.isFinite(brixNum) ? brixNum>=15 : undefined,
+			message: Number.isFinite(brixNum) ? (brixNum>=15 ? 'Optimal for fermentation' : 'Below optimal range - batch may not be ready') : undefined
+		},
+		alcoholContent: { 
+			text: 'Target ≥ 20 %', 
+			valid: Number.isFinite(alcNum) ? alcNum>=20 : undefined,
+			message: Number.isFinite(alcNum) ? (alcNum>=20 ? 'Good alcohol content' : 'Low alcohol content - needs more fermentation') : undefined
+		},
+		temperature: { 
+			text: 'Optimal 28–35 °C', 
+			valid: Number.isFinite(tempNum) ? (tempNum>=28 && tempNum<=35) : undefined,
+			message: Number.isFinite(tempNum) ? (tempNum>=28 && tempNum<=35 ? 'Optimal temperature range' : 'Temperature outside optimal range') : undefined
+		},
 		producedLiters: { text: 'Optional (e.g., 21.5 L)', valid: undefined },
 		timeInterval: { text: 'e.g., 56:04:01', valid: String(formData.timeInterval||'').trim()?true:undefined },
 		logDate: { text: 'Required', valid: String(formData.logDate||'').trim()?true:false }
@@ -248,9 +308,9 @@ const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 				endDate: end,
 				brix: formData.brix || 'N/A',
 				alcohol: formData.alcoholContent || 'N/A',
-				temperature: formData.temperature ? `${parseInt(formData.temperature, 10)} C` : 'N/A',
+				temperature: formData.temperature ? `${parseFloat(formData.temperature)} C` : 'N/A',
 				timeInterval: formData.timeInterval || 'N/A',
-				produced: formData.producedLiters ? `${parseFloat(formData.producedLiters)} L` : undefined
+				produced: formData.producedLiters ? `${parseFloat(formData.producedLiters)} L` : 'N/A'
 			};
 
 			// Attempt to persist through Flask API; fallback to localStorage if offline

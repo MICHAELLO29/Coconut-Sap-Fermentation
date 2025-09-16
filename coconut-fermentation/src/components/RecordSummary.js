@@ -24,8 +24,18 @@ const addDays = (dateStr, days) => {
 };
 
 const computeStatuses = (list) => {
-	const sorted = [...list].sort((a, b) => parseDMY(a.startDate) - parseDMY(b.startDate));
-	return sorted.map((b, idx) => ({ ...b, status: idx === 0 ? 'Ready' : 'N/A' }));
+	return list.map((b) => {
+		const brixNum = parseFloat(b.brix);
+		const alcoholNum = parseFloat(b.alcohol);
+		const tempStr = String(b.temperature || '');
+		const tempNum = parseFloat(tempStr.replace(/[^\d.]/g, ''));
+		
+		const isReady = Number.isFinite(brixNum) && brixNum >= 15 && 
+						Number.isFinite(alcoholNum) && alcoholNum >= 20 && 
+						Number.isFinite(tempNum) && tempNum >= 28 && tempNum <= 35;
+		
+		return { ...b, status: isReady ? 'Ready' : 'N/A' };
+	});
 };
 
 const RecordSummary = ({ onToggleMenu }) => {
@@ -33,19 +43,21 @@ const RecordSummary = ({ onToggleMenu }) => {
 	
 	// Load batches similar to Dashboard
 	const defaultBatches = useMemo(() => ([
-		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', brix: 16.0, alcohol: 25.0, temperature: '32.0 C', timeInterval: '56:04:01' },
-		{ id: '002', startDate: '22/05/25', endDate: '25/05/25' },
-		{ id: '003', startDate: '25/05/25', endDate: '28/05/25' },
-		{ id: '004', startDate: '27/05/25', endDate: '30/05/25' },
-		{ id: '005', startDate: '30/05/25', endDate: '02/06/25' }
+		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', brix: '16.0', alcohol: '25.0', temperature: '32 C', timeInterval: '56:04:01' },
+		{ id: '002', startDate: '22/05/25', endDate: '25/05/25', brix: 'N/A', alcohol: 'N/A', temperature: 'N/A', timeInterval: 'N/A' },
+		{ id: '003', startDate: '25/05/25', endDate: '28/05/25', brix: 'N/A', alcohol: 'N/A', temperature: 'N/A', timeInterval: 'N/A' },
+		{ id: '004', startDate: '27/05/25', endDate: '30/05/25', brix: 'N/A', alcohol: 'N/A', temperature: 'N/A', timeInterval: 'N/A' },
+		{ id: '005', startDate: '30/05/25', endDate: '02/06/25', brix: 'N/A', alcohol: 'N/A', temperature: 'N/A', timeInterval: 'N/A' }
 	]), []);
+	
+	const [refreshTick, setRefreshTick] = useState(0);
 	
 	const batchesRaw = useMemo(() => {
 		try {
 			const saved = JSON.parse(localStorage.getItem('batches') || 'null');
 			return saved && Array.isArray(saved) && saved.length ? saved : defaultBatches;
 		} catch { return defaultBatches; }
-	}, [defaultBatches]);
+	}, [defaultBatches, refreshTick]);
 	
 	const batches = useMemo(() => computeStatuses(batchesRaw), [batchesRaw]);
 	const sortedBatches = useMemo(() =>
@@ -55,6 +67,27 @@ const RecordSummary = ({ onToggleMenu }) => {
 	
 	const [selectedId, setSelectedId] = useState(sortedBatches[0]?.id || '');
 	useEffect(()=>{ if (sortedBatches.length && !sortedBatches.find(b=>b.id===selectedId)) setSelectedId(sortedBatches[0].id); }, [sortedBatches, selectedId]);
+	
+	// Listen for localStorage changes and refresh data
+	useEffect(() => {
+		const onStorage = (e) => {
+			if (!e || !e.key || e.key === 'batches') {
+				setRefreshTick(prev => prev + 1);
+			}
+		};
+		
+		// Also refresh periodically to catch any missed updates
+		const interval = setInterval(() => {
+			setRefreshTick(prev => prev + 1);
+		}, 2000);
+		
+		window.addEventListener('storage', onStorage);
+		
+		return () => {
+			clearInterval(interval);
+			window.removeEventListener('storage', onStorage);
+		};
+	}, []);
 	
 	const selected = useMemo(() => sortedBatches.find(b => b.id === selectedId) || sortedBatches[0] || {}, [sortedBatches, selectedId]);
 	const [summaryLoading, setSummaryLoading] = useState(false);

@@ -28,8 +28,18 @@ const addDays = (dateStr, days) => {
 };
 
 const computeStatuses = (list) => {
-	const sorted = [...list].sort((a, b) => parseDMY(a.startDate) - parseDMY(b.startDate));
-	return sorted.map((b, idx) => ({ ...b, status: idx === 0 ? 'Ready' : 'N/A' }));
+	return list.map((b) => {
+		const brixNum = parseFloat(b.brix);
+		const alcoholNum = parseFloat(b.alcohol);
+		const tempStr = String(b.temperature || '');
+		const tempNum = parseFloat(tempStr.replace(/[^\d.]/g, ''));
+		
+		const isReady = Number.isFinite(brixNum) && brixNum >= 15 && 
+						Number.isFinite(alcoholNum) && alcoholNum >= 20 && 
+						Number.isFinite(tempNum) && tempNum >= 28 && tempNum <= 35;
+		
+		return { ...b, status: isReady ? 'Ready' : 'N/A' };
+	});
 };
 
 const Dashboard = ({ onToggleMenu }) => {
@@ -39,9 +49,12 @@ const Dashboard = ({ onToggleMenu }) => {
 	// Trigger re-computation from API/localStorage periodically and on storage events
 	const [refreshTick, setRefreshTick] = useState(0);
 	const [apiBatches, setApiBatches] = useState(null);
-	const [dashLoading, setDashLoading] = useState(true);
+	const [chartData, setChartData] = useState([]);
+	const [loading, setLoading] = useState(false);
+	const [chartLoading, setChartLoading] = useState(true);
+	const [hoveredPoint, setHoveredPoint] = useState(null);
 	
-	useEffect(()=>{ const t=setTimeout(()=>setDashLoading(false), 420); return ()=>clearTimeout(t); },[]);
+	useEffect(()=>{ const t=setTimeout(()=>setChartLoading(false), 420); return ()=>clearTimeout(t); },[]);
 	
 	// Load batches from localStorage or fallback
 	const defaultBatches = useMemo(() => ([
@@ -283,7 +296,7 @@ const Dashboard = ({ onToggleMenu }) => {
 				<div style={{ overflowX: 'auto' }}>
 					{/* Outer frame */}
 					<div style={commonStyles.tableContainer}>
-						{dashLoading ? (
+						{loading ? (
 							<div style={{ padding:20 }}>
 								<div className="ux-skeleton" style={{ height:16, marginBottom:10, borderRadius:6 }} />
 								{[...Array(5)].map((_,i)=>(<div key={i} className="ux-skeleton" style={{ height:42, marginBottom:8, borderRadius:8 }} />))}
@@ -350,22 +363,16 @@ const Dashboard = ({ onToggleMenu }) => {
 							position: 'relative',
 							overflow: 'hidden'
 						}}>
-							<div style={{ textAlign: 'center', color: '#64748b', zIndex: 1 }}>
-								<div style={{ fontSize: 48, marginBottom: 16, filter: 'drop-shadow(0 4px 8px rgba(100, 116, 139, 0.2))' }}>📊</div>
-								<div style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: '#475569' }}>No Production Data</div>
-								<div style={{ fontSize: 14, color: '#64748b', marginBottom: 16 }}>Save new records to see production data here</div>
-								<div style={{ 
-									display: 'inline-flex', 
-									alignItems: 'center', 
-									gap: 8, 
-									padding: '8px 16px', 
-									background: 'rgba(100, 116, 139, 0.1)', 
-									borderRadius: 8,
-									border: '1px solid rgba(100, 116, 139, 0.2)'
-								}}>
-									<span style={{ fontSize: 12 }}>💡</span>
-									<span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>Go to "Save New Record" to add data</span>
-								</div>
+							<div style={{ 
+								display: 'flex', 
+								flexDirection: 'column', 
+								alignItems: 'center', 
+								justifyContent: 'center',
+								padding: 20
+							}}>
+								<div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+								<div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, color: '#64748b' }}>No Production Data</div>
+								<div style={{ fontSize: 14, color: '#94a3b8' }}>Save your first fermentation record to see production trends</div>
 							</div>
 						</div>
 					)}

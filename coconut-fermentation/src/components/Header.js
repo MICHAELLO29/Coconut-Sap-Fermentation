@@ -6,12 +6,15 @@ const Header = ({ title, rightContent, onToggleMenu }) => {
 			display: 'flex',
 			justifyContent: 'space-between',
 			alignItems: 'center',
-			padding: '15px 20px',
-			backgroundColor: 'white',
-			borderBottom: '1px solid #e0e0e0',
-			boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-			position: 'relative',
-			zIndex: 100
+			padding: 'var(--spacing-4) var(--spacing-5)',
+			backgroundColor: 'rgba(255, 255, 255, 0.95)',
+			backdropFilter: 'blur(10px)',
+			borderBottom: '1px solid var(--color-gray-200)',
+			boxShadow: 'var(--shadow-md)',
+			position: 'sticky',
+			top: 0,
+			zIndex: 100,
+			transition: 'all var(--transition-normal)'
 		},
 		leftSection: {
 			display: 'flex',
@@ -30,13 +33,14 @@ const Header = ({ title, rightContent, onToggleMenu }) => {
 			height: window.innerWidth <= 480 ? 32 : 40
 		},
 		title: {
-			color: '#4CAF50',
-			fontSize: window.innerWidth <= 480 ? 18 : 28,
+			color: 'var(--color-primary-600)',
+			fontSize: window.innerWidth <= 480 ? 'var(--font-size-lg)' : 'var(--font-size-2xl)',
 			fontWeight: 700,
 			margin: 0,
 			whiteSpace: 'nowrap',
 			overflow: 'hidden',
-			textOverflow: 'ellipsis'
+			textOverflow: 'ellipsis',
+			fontFamily: 'var(--font-family-primary)'
 		},
 		rightSection: {
 			display: 'flex',
@@ -48,12 +52,18 @@ const Header = ({ title, rightContent, onToggleMenu }) => {
 			cursor: 'pointer',
 			transform: 'translateZ(0)',
 			zIndex: 1001,
-			padding: '8px',
-			margin: '-8px',
+			padding: 'var(--spacing-2)',
+			margin: 'calc(-1 * var(--spacing-2))',
 			flexShrink: 0,
-			borderRadius: '4px',
-			transition: 'background-color 150ms ease',
-			position: 'relative'
+			borderRadius: 'var(--radius-md)',
+			transition: 'all var(--transition-fast)',
+			position: 'relative',
+			display: 'flex',
+			flexDirection: 'column',
+			justifyContent: 'center',
+			alignItems: 'center',
+			minHeight: '44px',
+			minWidth: '44px'
 		},
 		hamburgerLine: {
 			width: window.innerWidth <= 480 ? 28 : 36,
@@ -73,17 +83,20 @@ const Header = ({ title, rightContent, onToggleMenu }) => {
 	return (
 		<div style={headerStyles.container}>
 			<div style={headerStyles.leftSection}>
-				<div 
-					title="menu" 
+				<button 
+					aria-label="Toggle navigation menu"
 					onClick={onToggleMenu} 
 					style={headerStyles.hamburgerMenu}
-					onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
+					onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-gray-100)'}
 					onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+					onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 3px var(--color-primary-200)'}
+					onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
 				>
+					<span className="sr-only">Menu</span>
 					<div style={headerStyles.hamburgerLine} />
 					<div style={headerStyles.hamburgerLine} />
 					<div style={headerStyles.hamburgerLineBottom} />
-				</div>
+				</button>
 				<div style={headerStyles.logoContainer}>
 					<img src="/DashboardIcon.png" alt="Logo" style={headerStyles.logo} />
 				</div>

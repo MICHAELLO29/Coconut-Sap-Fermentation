@@ -1,96 +1,239 @@
 import { useEffect } from 'react';
 
-// Global CSS styles and animations
+// Professional CSS Design System
 const globalCSS = `
-  @keyframes fadeIn { 
-    from { opacity: 0; transform: translateY(6px) } 
-    to { opacity: 1; transform: translateY(0) } 
+  /* Import Inter font from Google Fonts */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  /* CSS Custom Properties for Design System */
+  :root {
+    /* Typography */
+    --font-family-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+    --font-size-4xl: 2.25rem;
+    
+    /* Professional Colors */
+    --color-primary-50: #ecfdf5;
+    --color-primary-100: #d1fae5;
+    --color-primary-200: #a7f3d0;
+    --color-primary-500: #10b981;
+    --color-primary-600: #059669;
+    --color-primary-700: #047857;
+    --color-primary-800: #065f46;
+    
+    --color-secondary-500: #06b6d4;
+    --color-secondary-600: #0891b2;
+    
+    --color-accent-500: #f59e0b;
+    --color-accent-600: #d97706;
+    
+    --color-gray-50: #f9fafb;
+    --color-gray-100: #f3f4f6;
+    --color-gray-200: #e5e7eb;
+    --color-gray-300: #d1d5db;
+    --color-gray-400: #9ca3af;
+    --color-gray-500: #6b7280;
+    --color-gray-600: #4b5563;
+    --color-gray-700: #374151;
+    --color-gray-800: #1f2937;
+    --color-gray-900: #111827;
+    
+    /* Spacing */
+    --spacing-1: 0.25rem;
+    --spacing-2: 0.5rem;
+    --spacing-3: 0.75rem;
+    --spacing-4: 1rem;
+    --spacing-5: 1.25rem;
+    --spacing-6: 1.5rem;
+    --spacing-8: 2rem;
+    --spacing-10: 2.5rem;
+    --spacing-12: 3rem;
+    
+    /* Border Radius */
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.5rem;
+    --radius-full: 9999px;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    
+    /* Transitions */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
   }
   
-  @keyframes pop { 
-    from { opacity: 0; transform: scale(.98) translateY(6px) } 
-    to { opacity: 1; transform: scale(1) translateY(0) } 
+  /* Enhanced Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(var(--spacing-4)) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
   
-  .card { 
-    animation: pop .35s ease both; 
-    transition: transform 160ms ease; 
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
   }
   
-  .card:hover { 
-    transform: translateY(-2px); 
+  @keyframes shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
   }
   
-  .chartCard { 
-    animation: pop .35s ease .05s both; 
+  /* Base Styles */
+  body {
+    font-family: var(--font-family-primary);
+    font-size: var(--font-size-base);
+    line-height: 1.6;
+    color: var(--color-gray-900);
+    background-color: var(--color-gray-50);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
-  .tableWrap { 
-    animation: pop .35s ease .05s both; 
+  .card {
+    animation: fadeInUp var(--transition-slow) ease both;
+    transition: all var(--transition-normal);
+    backdrop-filter: blur(10px);
   }
   
-  .menu { 
-    width: 300px; 
+  .card:hover {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: var(--shadow-xl);
   }
   
-  .inputRow { 
-    gap: 12px; 
+  .chartCard {
+    animation: fadeInUp var(--transition-slow) 0.1s ease both;
   }
   
-  .inputRow input { 
-    width: 100%; 
+  .tableWrap {
+    animation: fadeInUp var(--transition-slow) 0.15s ease both;
   }
   
-  /* Global UX helpers */
-  @keyframes uxFadeUp { 
-    from { opacity: 0; transform: translateY(8px) } 
-    to { opacity: 1; transform: translateY(0) } 
+  .menu {
+    width: 320px;
+    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.95);
   }
   
-  .ux-card { 
-    animation: uxFadeUp .32s ease both; 
+  .inputRow {
+    gap: var(--spacing-4);
   }
   
-  .ux-pressable { 
-    transition: transform 120ms ease, box-shadow 120ms ease; 
+  .inputRow input {
+    width: 100%;
   }
   
-  .ux-pressable:active { 
-    transform: scale(.98); 
+  /* Enhanced UX Components */
+  .ux-card {
+    animation: fadeInUp var(--transition-slow) ease both;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--color-gray-200);
   }
   
-  .ux-focus { 
-    outline: none; 
+  .ux-pressable {
+    transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
   }
   
-  .ux-focus:focus { 
-    box-shadow: 0 0 0 3px rgba(22,163,74,.25); 
+  .ux-pressable::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transition: width var(--transition-fast), height var(--transition-fast);
+    transform: translate(-50%, -50%);
   }
   
-  .ux-meter { 
-    height: 10px; 
-    background: #eef6ef; 
-    border: 1px solid #d9ead9; 
-    border-radius: 999px; 
-    overflow: hidden; 
+  .ux-pressable:active::before {
+    width: 300px;
+    height: 300px;
   }
   
-  .ux-meter-bar { 
-    height: 100%; 
-    background: #16a34a; 
-    width: 0; 
-    transition: width 240ms ease; 
+  .ux-pressable:active {
+    transform: scale(0.98);
   }
   
-  .ux-skeleton { 
-    background: linear-gradient(90deg,#eee 25%, #f5f5f5 37%, #eee 63%); 
-    background-size: 400% 100%; 
-    animation: uxShimmer 1.2s infinite; 
+  .ux-pressable:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lg);
   }
   
-  @keyframes uxShimmer { 
-    0% { background-position: 100% 0 } 
-    100% { background-position: -100% 0 } 
+  .ux-focus {
+    outline: none;
+    transition: all var(--transition-fast);
+  }
+  
+  .ux-focus:focus {
+    box-shadow: 0 0 0 3px var(--color-primary-200);
+    border-color: var(--color-primary-500);
+  }
+  
+  .ux-focus:focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+  }
+  
+  .ux-meter {
+    height: 12px;
+    background: var(--color-gray-200);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    position: relative;
+  }
+  
+  .ux-meter::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shimmer 2s infinite;
+  }
+  
+  .ux-meter-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary-500), var(--color-primary-600));
+    width: 0;
+    transition: width var(--transition-slow) cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: var(--radius-full);
+    position: relative;
+  }
+  
+  .ux-skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-gray-200) 25%,
+      var(--color-gray-300) 37%,
+      var(--color-gray-200) 63%
+    );
+    background-size: 400% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--radius-md);
   }
 
   @keyframes fadeIn {
@@ -153,6 +296,126 @@ const globalCSS = `
     transform: scale(0.98); 
   }
   
+  /* Responsive Design Improvements */
+  @media (max-width: 768px) {
+    .grid-3 {
+      grid-template-columns: 1fr !important;
+      gap: var(--spacing-4) !important;
+      margin: var(--spacing-4) !important;
+    }
+    
+    .card, .tableWrap, .chartCard {
+      padding: var(--spacing-4) !important;
+      margin: var(--spacing-4) !important;
+    }
+    
+    .inputRow {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+    
+    .inputRow label {
+      min-width: auto !important;
+      margin-bottom: var(--spacing-2) !important;
+    }
+    
+    .detailsGrid, .summaryGrid, .monitorGrid {
+      grid-template-columns: 1fr !important;
+      gap: var(--spacing-4) !important;
+      padding: 0 var(--spacing-4) var(--spacing-4) !important;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .grid-3 {
+      margin: var(--spacing-3) !important;
+      gap: var(--spacing-3) !important;
+    }
+    
+    .card, .tableWrap, .chartCard {
+      padding: var(--spacing-3) !important;
+      margin: var(--spacing-3) !important;
+    }
+    
+    h1, h2, h3 {
+      font-size: var(--font-size-lg) !important;
+    }
+    
+    .inputField {
+      font-size: 16px !important;
+      padding: var(--spacing-3) !important;
+    }
+    
+    .primaryButton, .secondaryButton {
+      width: 100% !important;
+      justify-content: center !important;
+    }
+    
+    table {
+      font-size: var(--font-size-sm) !important;
+    }
+  }
+  
+  /* Touch-friendly improvements */
+  @media (hover: none) and (pointer: coarse) {
+    .primaryButton, .secondaryButton {
+      min-height: 44px !important;
+      padding: var(--spacing-3) var(--spacing-6) !important;
+    }
+    
+    .inputField {
+      min-height: 44px !important;
+      padding: var(--spacing-3) !important;
+    }
+    
+    .ux-pressable {
+      min-height: 44px !important;
+      min-width: 44px !important;
+    }
+  }
+  
+  /* Accessibility Improvements */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  
+  .sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+  
+  @media (prefers-contrast: high) {
+    .card, .tableWrap, .chartCard {
+      border: 2px solid var(--color-gray-800) !important;
+    }
+    
+    .primaryButton {
+      border: 2px solid var(--color-primary-700) !important;
+    }
+    
+    .secondaryButton {
+      border: 2px solid var(--color-gray-700) !important;
+    }
+  }
+  
+  button:focus-visible, 
+  input:focus-visible, 
+  select:focus-visible {
+    outline: 3px solid var(--color-primary-500) !important;
+    outline-offset: 2px !important;
+  }
+  
   .detailsGrid, .summaryGrid, .monitorGrid { 
     grid-template-columns: 1.2fr 1fr; 
   }
@@ -181,60 +444,79 @@ const globalCSS = `
   }
 `;
 
-// Common style objects
+// Enhanced Common Style Objects with Professional Design System
 export const commonStyles = {
   // Layout styles
   pageContainer: {
-    fontFamily: 'Arial, sans-serif',
-    backgroundColor: '#f5f5f5',
+    fontFamily: 'var(--font-family-primary)',
+    backgroundColor: 'var(--color-gray-50)',
     minHeight: '100vh',
     width: '100%',
-    overflow: 'auto'
+    overflow: 'auto',
+    position: 'relative'
   },
 
-  // Card styles
+  // Enhanced Card styles
   card: {
-    background: 'white',
-    padding: 25,
-    borderRadius: 8,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+    background: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(10px)',
+    padding: 'var(--spacing-8)',
+    borderRadius: 'var(--radius-xl)',
+    boxShadow: 'var(--shadow-lg)',
+    border: '1px solid var(--color-gray-200)',
+    transition: 'all var(--transition-normal)'
   },
 
   cardWithBorder: {
-    background: 'white',
-    padding: 25,
-    borderRadius: 8,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    border: '2px solid #333',
-    textAlign: 'center'
+    background: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(10px)',
+    padding: 'var(--spacing-8)',
+    borderRadius: 'var(--radius-xl)',
+    boxShadow: 'var(--shadow-lg)',
+    border: '2px solid var(--color-gray-800)',
+    textAlign: 'center',
+    transition: 'all var(--transition-normal)'
   },
 
   greenCard: {
-    background: '#e8f5e8',
-    padding: 25,
-    borderRadius: 8,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    border: '2px solid #4CAF50',
-    textAlign: 'center'
+    background: 'var(--color-primary-50)',
+    backdropFilter: 'blur(10px)',
+    padding: 'var(--spacing-8)',
+    borderRadius: 'var(--radius-xl)',
+    boxShadow: 'var(--shadow-lg)',
+    border: '2px solid var(--color-primary-500)',
+    textAlign: 'center',
+    transition: 'all var(--transition-normal)'
   },
 
   redCard: {
-    background: '#ffebee',
-    padding: 25,
-    borderRadius: 8,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    border: '2px solid #f44336',
-    textAlign: 'center'
+    background: '#fef2f2',
+    backdropFilter: 'blur(10px)',
+    padding: 'var(--spacing-8)',
+    borderRadius: 'var(--radius-xl)',
+    boxShadow: 'var(--shadow-lg)',
+    border: '2px solid #ef4444',
+    textAlign: 'center',
+    transition: 'all var(--transition-normal)'
   },
 
-  // Grid layouts
+  // Responsive Grid layouts
   grid3: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-    gap: 20,
-    margin: 20,
-    marginTop: 10,
-    marginBottom: 20
+    gap: 'var(--spacing-5)',
+    margin: 'var(--spacing-5)',
+    marginTop: 'var(--spacing-3)',
+    marginBottom: 'var(--spacing-5)',
+    '@media (max-width: 768px)': {
+      gridTemplateColumns: '1fr',
+      gap: 'var(--spacing-4)',
+      margin: 'var(--spacing-4)'
+    },
+    '@media (max-width: 480px)': {
+      margin: 'var(--spacing-3)',
+      gap: 'var(--spacing-3)'
+    }
   },
 
   detailsGrid: {
@@ -273,42 +555,52 @@ export const commonStyles = {
     lineHeight: 1
   },
 
-  // Button styles
+  // Enhanced Button styles
   primaryButton: {
-    background: '#16a34a',
-    color: '#fff',
-    fontWeight: 800,
+    background: 'linear-gradient(135deg, var(--color-primary-600), var(--color-primary-700))',
+    color: 'white',
+    fontWeight: 700,
     border: 'none',
-    padding: '16px 42px',
-    borderRadius: 50,
-    fontSize: 18,
+    padding: 'var(--spacing-4) var(--spacing-10)',
+    borderRadius: 'var(--radius-full)',
+    fontSize: 'var(--font-size-lg)',
     cursor: 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
-    gap: 10
+    gap: 'var(--spacing-3)',
+    transition: 'all var(--transition-normal)',
+    boxShadow: 'var(--shadow-md)',
+    position: 'relative',
+    overflow: 'hidden'
   },
 
   secondaryButton: {
-    background: '#ffffff',
-    color: '#333',
-    fontWeight: 700,
-    border: '2px solid #e5e7eb',
-    padding: '16px 24px',
-    borderRadius: 50,
-    fontSize: 16,
-    cursor: 'pointer'
+    background: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(10px)',
+    color: 'var(--color-gray-700)',
+    fontWeight: 600,
+    border: '2px solid var(--color-gray-300)',
+    padding: 'var(--spacing-4) var(--spacing-6)',
+    borderRadius: 'var(--radius-full)',
+    fontSize: 'var(--font-size-base)',
+    cursor: 'pointer',
+    transition: 'all var(--transition-normal)',
+    boxShadow: 'var(--shadow-sm)'
   },
 
-  // Input styles
+  // Enhanced Input styles
   inputField: {
     flex: 1,
-    padding: '18px 16px',
-    borderRadius: 12,
-    border: '1px solid #eee',
-    background: '#f6f7f7',
+    padding: 'var(--spacing-5) var(--spacing-4)',
+    borderRadius: 'var(--radius-lg)',
+    border: '2px solid var(--color-gray-200)',
+    background: 'rgba(255, 255, 255, 0.8)',
+    backdropFilter: 'blur(5px)',
     textAlign: 'right',
-    fontSize: 18,
-    color: '#333'
+    fontSize: 'var(--font-size-lg)',
+    color: 'var(--color-gray-900)',
+    transition: 'all var(--transition-fast)',
+    fontWeight: 500
   },
 
   // Table styles
