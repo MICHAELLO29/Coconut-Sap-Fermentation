@@ -181,41 +181,21 @@ const Dashboard = ({ onToggleMenu }) => {
 	};
 	
 	const baseSeries = useMemo(() => {
-		// Prefer seeded chart data (used after Reset). If missing, use built-in sample to match reference.
-		let seedLiters = null;
-		let seedSales = null;
+		// Only show data from saved records - no hardcoded fallback data
+		let seedLiters = [];
+		let seedSales = [];
 		try {
-			seedLiters = JSON.parse(localStorage.getItem('chart_liters') || 'null');
-			seedSales = JSON.parse(localStorage.getItem('chart_sales') || 'null');
-		} catch {}
-		if (!Array.isArray(seedLiters) || !seedLiters.length || !Array.isArray(seedSales) || !seedSales.length) {
-			seedLiters = [
-				{ date: 'May-22', liters: 26 },
-				{ date: 'May-25', liters: 28 },
-				{ date: 'May-27', liters: 22 },
-				{ date: 'May-29', liters: 39 },
-				{ date: 'May-31', liters: 26 },
-				{ date: 'Jun-02', liters: 45 },
-				{ date: 'Jun-05', liters: 41 },
-				{ date: 'Jun-07', liters: 38 },
-				{ date: 'Jun-10', liters: 40 },
-				{ date: 'Jun-12', liters: 31 },
-				{ date: 'Jun-16', liters: 38 }
-			];
-			seedSales = [
-				{ date: 'May-22', sales: 1500 },
-				{ date: 'May-25', sales: 1550 },
-				{ date: 'May-27', sales: 1600 },
-				{ date: 'May-29', sales: 1700 },
-				{ date: 'May-31', sales: 900 },
-				{ date: 'Jun-02', sales: 950 },
-				{ date: 'Jun-05', sales: 1600 },
-				{ date: 'Jun-07', sales: 1700 },
-				{ date: 'Jun-10', sales: 1800 },
-				{ date: 'Jun-12', sales: 1900 },
-				{ date: 'Jun-16', sales: 2000 }
-			];
+			seedLiters = JSON.parse(localStorage.getItem('chart_liters') || '[]');
+			seedSales = JSON.parse(localStorage.getItem('chart_sales') || '[]');
+		} catch {
+			seedLiters = [];
+			seedSales = [];
 		}
+		
+		// Only use data if it exists from saved records
+		if (!Array.isArray(seedLiters)) seedLiters = [];
+		if (!Array.isArray(seedSales)) seedSales = [];
+		
 		// Merge seed arrays by date
 		const byDate = {};
 		seedLiters.forEach(r => { byDate[r.date] = { date: r.date, liters: r.liters ?? null, sales: null }; });
@@ -227,7 +207,7 @@ const Dashboard = ({ onToggleMenu }) => {
 			if (ma !== mb) return monthOrder.indexOf(ma) - monthOrder.indexOf(mb);
 			return parseInt(da,10) - parseInt(db,10);
 		});
-	}, [batches]);
+	}, [refreshTick]);
 
 	const lambanogData = baseSeries.map(r => ({ date: r.date, liters: r.liters }));
 
@@ -348,15 +328,47 @@ const Dashboard = ({ onToggleMenu }) => {
 					</select>
 				</div>
 				<div style={{ width: '100%', height: 400 }}>
-					<ResponsiveContainer width="100%" height="100%">
-						<BarChart data={litersChartData}>
-							<CartesianGrid strokeDasharray="3 3" />
-							<XAxis dataKey="date" />
-							<YAxis />
-							<Tooltip />
-							<Bar dataKey="liters" fill="#4CAF50" />
-						</BarChart>
-					</ResponsiveContainer>
+					{litersChartData.length > 0 ? (
+						<ResponsiveContainer width="100%" height="100%">
+							<BarChart data={litersChartData}>
+								<CartesianGrid strokeDasharray="3 3" />
+								<XAxis dataKey="date" />
+								<YAxis />
+								<Tooltip />
+								<Bar dataKey="liters" fill="#4CAF50" />
+							</BarChart>
+						</ResponsiveContainer>
+					) : (
+						<div style={{ 
+							height: '100%', 
+							display: 'flex', 
+							alignItems: 'center', 
+							justifyContent: 'center',
+							background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+							borderRadius: 16,
+							border: '2px dashed #cbd5e1',
+							position: 'relative',
+							overflow: 'hidden'
+						}}>
+							<div style={{ textAlign: 'center', color: '#64748b', zIndex: 1 }}>
+								<div style={{ fontSize: 48, marginBottom: 16, filter: 'drop-shadow(0 4px 8px rgba(100, 116, 139, 0.2))' }}>📊</div>
+								<div style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: '#475569' }}>No Production Data</div>
+								<div style={{ fontSize: 14, color: '#64748b', marginBottom: 16 }}>Save new records to see production data here</div>
+								<div style={{ 
+									display: 'inline-flex', 
+									alignItems: 'center', 
+									gap: 8, 
+									padding: '8px 16px', 
+									background: 'rgba(100, 116, 139, 0.1)', 
+									borderRadius: 8,
+									border: '1px solid rgba(100, 116, 139, 0.2)'
+								}}>
+									<span style={{ fontSize: 12 }}>💡</span>
+									<span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>Go to "Save New Record" to add data</span>
+								</div>
+							</div>
+						</div>
+					)}
 				</div>
 			</div>
 		</div>

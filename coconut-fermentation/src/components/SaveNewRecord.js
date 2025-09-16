@@ -125,6 +125,17 @@ const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 							className="ux-focus"
 							style={{ flex: 1, padding: '14px 12px', borderRadius: 12, border: '1px solid #e5e7eb', background: '#f6f7f7', textAlign: 'right', fontSize: 16, color: '#333' }}
 						/>
+					) : name === 'timeInterval' ? (
+						<input
+							name={name}
+							value={value}
+							onChange={handleInputChange}
+							type={'text'}
+							ref={helper && helper.valid===false && !firstInvalidRef.current ? firstInvalidRef : undefined}
+							aria-invalid={helper ? helper.valid===false : undefined}
+							className="ux-focus"
+							style={commonStyles.inputField}
+						/>
 					) : (
 						<>
 							<button type="button" onClick={() => stepField(name, -1)} className="ux-pressable" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 10px', cursor: 'pointer' }}>-</button>
@@ -282,35 +293,9 @@ const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 		// open custom confirm
 		confirmActionRef.current = () => {
 			localStorage.removeItem('batches');
-			const seedLiters = [
-				{ date: 'May-22', liters: 26 },
-				{ date: 'May-25', liters: 28 },
-				{ date: 'May-27', liters: 22 },
-				{ date: 'May-29', liters: 39 },
-				{ date: 'May-31', liters: 26 },
-				{ date: 'Jun-02', liters: 45 },
-				{ date: 'Jun-05', liters: 41 },
-				{ date: 'Jun-07', liters: 38 },
-				{ date: 'Jun-10', liters: 40 },
-				{ date: 'Jun-12', liters: 31 },
-				{ date: 'Jun-16', liters: 38 }
-			];
-			const seedSales = [
-				{ date: 'May-22', sales: 1500 },
-				{ date: 'May-25', sales: 1550 },
-				{ date: 'May-27', sales: 1600 },
-				{ date: 'May-29', sales: 1700 },
-				{ date: 'May-31', sales: 900 },
-				{ date: 'Jun-02', sales: 950 },
-				{ date: 'Jun-05', sales: 1600 },
-				{ date: 'Jun-07', sales: 1700 },
-				{ date: 'Jun-10', sales: 1800 },
-				{ date: 'Jun-12', sales: 1900 },
-				{ date: 'Jun-16', sales: 2000 }
-			];
-			localStorage.setItem('chart_liters', JSON.stringify(seedLiters));
-			localStorage.setItem('chart_sales', JSON.stringify(seedSales));
-			showToast('Batches reset.', 'success');
+			localStorage.removeItem('chart_liters');
+			localStorage.removeItem('chart_sales');
+			showToast('All data cleared. Chart will only show new saved records.', 'success');
 			onNavigate && onNavigate('dashboard');
 			setConfirmOpen(false);
 		};
