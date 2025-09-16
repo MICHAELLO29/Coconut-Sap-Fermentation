@@ -34,7 +34,8 @@ const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
     document.head.appendChild(style);
     return () => { document.head.removeChild(style); };
   }, []);
-
+  
+  // Form state
   const [formData, setFormData] = useState({
     angle: '',
     sg: '',
@@ -46,8 +47,9 @@ const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
     timestamp: ''
   });
 
+  // Current batch ID
   const [batchId, setBatchId] = useState(null);
-
+  // Fetch preview readings every 3 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       fetch("http://127.0.0.1:5000/preview_reading")
@@ -67,7 +69,7 @@ const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
           }
         })
         .catch(err => console.error("Preview fetch error:", err));
-    }, 3000); // every 3 sec
+    }, 3000);
 
     return () => clearInterval(interval); // cleanup on unmount
   }, []);
@@ -92,7 +94,8 @@ const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
   useEffect(() => {
     try { localStorage.setItem('confirmBatchDraft', JSON.stringify(formData)); } catch {}
   }, [formData]);
-
+  
+  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -100,6 +103,20 @@ const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
       [name]: value
     }));
   };
+
+  // Check if there's an active batch
+  const [activeBatch, setActiveBatch] = useState(null);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/active_batch")
+      .then(res => res.json())
+      .then(data => {
+        if (data.active) {
+          setActiveBatch(data.batch_id);
+        }
+      })
+      .catch(err => console.error("Error checking active batch:", err));
+  }, []);
 
   // Confirm & Start monitoring the batch
   const handleConfirm = async () => {
@@ -125,16 +142,18 @@ const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
       console.error("Error creating batch:", error);
       alert("Failed to create batch. Please try again.");
     }
+
+    // clears draft after confirming
+    localStorage.removeItem('confirmBatchDraft');
   };
 
-    
-  
+  // Utility to check if a value is non-empty
   const hasValue = (val) => {
   if (val === null || val === undefined) return false;
   if (typeof val === "number") return !isNaN(val);
   if (typeof val === "string") return val.trim() !== "";
   return false;
-};
+  };
 
   // Dates
   const today = useMemo(() => new Date(), []);
@@ -290,14 +309,19 @@ const ConfirmBatch = ({ onNavigate, onOpenMenu }) => {
 
         {/* Bottom: centered CTA */}
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+          {activeBatch ? (
+            <div style={{ color: "red", fontWeight: 600}}>
+              Batch is {activeBatch} is currently active
+              </div>
+          ) : (
           <button onClick={handleConfirm} style={{ minWidth: 260, background: '#16a34a', color: '#ffffff', fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, cursor: 'pointer', boxShadow: '0 6px 16px rgba(22,163,74,0.25)' }}>
             Confirm & Start
           </button>
+          )}
         </div>
-
       </div>
     </div>
   );
-};
+};  
 
 export default ConfirmBatch;
