@@ -203,15 +203,15 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', background: '#f5f5f5', minHeight: '100vh' }}>
       {/* Header same pattern as others with hamburger */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 30px', backgroundColor: 'white', borderBottom: '1px solid #e0e0e0', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-          <img src="/DashboardIcon.png" alt="Logo" style={{ width: 36, height: 36 }} />
-          <h1 style={{ color: '#4CAF50', fontSize: 28, fontWeight: 700, margin: 0 }}>Confirm Batch</h1>
-        </div>
-        <div onClick={onToggleMenu} title="menu" style={{ cursor: 'pointer' }}>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '20px 30px', backgroundColor: 'white', borderBottom: '1px solid #e0e0e0', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+        <div onClick={onToggleMenu} title="menu" style={{ cursor: 'pointer', marginRight: 15 }}>
           <div style={{ width: 36, height: 6, background: '#bdbdbd', borderRadius: 6, marginBottom: 6 }} />
           <div style={{ width: 36, height: 6, background: '#bdbdbd', borderRadius: 6, marginBottom: 6 }} />
           <div style={{ width: 36, height: 6, background: '#bdbdbd', borderRadius: 6 }} />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+          <img src="/DashboardIcon.png" alt="Logo" style={{ width: 36, height: 36 }} />
+          <h1 style={{ color: '#4CAF50', fontSize: 28, fontWeight: 700, margin: 0 }}>Confirm Batch</h1>
         </div>
       </div>
 

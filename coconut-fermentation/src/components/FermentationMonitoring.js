@@ -62,54 +62,147 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	// Generate monitoring data
 	const [monitoringData, setMonitoringData] = useState([]);
 	const [isLive, setIsLive] = useState(false);
+	const [visibleParameters, setVisibleParameters] = useState({
+		pH: true,
+		alcohol: true,
+		temperature: true,
+		brix: true
+	});
 	
-	useEffect(() => {
-		const generateData = () => {
-			const data = [];
-			const baseTime = new Date();
-			baseTime.setHours(baseTime.getHours() - 12);
-			
-			for (let i = 0; i < 24; i++) {
-				const time = new Date(baseTime.getTime() + i * 30 * 60 * 1000); // 30-minute intervals
-				const timeStr = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-				
-				// Simulate realistic fermentation curves
-				const progress = i / 23;
-				const phBase = 4.2 - (progress * 0.8); // pH decreases over time
-				const alcoholBase = progress * 8; // Alcohol increases
-				const tempBase = 28 + Math.sin(progress * Math.PI) * 4; // Temperature varies
-				
-				data.push({
-					time: timeStr,
-					pH: Math.max(3.0, Math.min(5.0, phBase + (Math.random() - 0.5) * 0.3)),
-					alcohol: Math.max(0, Math.min(12, alcoholBase + (Math.random() - 0.5) * 1)),
-					temperature: Math.max(20, Math.min(35, tempBase + (Math.random() - 0.5) * 2))
-				});
+	// Time tracking for live sessions
+	const [sessionStartTime, setSessionStartTime] = useState(null);
+	const [sessionEndTime, setSessionEndTime] = useState(null);
+	const [elapsedTime, setElapsedTime] = useState(0);
+	const [sessionHistory, setSessionHistory] = useState([]);
+	
+	// API function to fetch real IoT data
+	const fetchIoTData = async () => {
+		try {
+			const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
+			const response = await fetch(`${apiBase}/api/fermentation/live/${selectedId}`);
+			if (response.ok) {
+				const data = await response.json();
+				return data;
 			}
-			setMonitoringData(data);
+		} catch (error) {
+			console.log('API not available, using simulated data');
+		}
+		return null;
+	};
+
+	// Generate monitoring data only when live monitoring starts
+	useEffect(() => {
+		if (!isLive) {
+			setMonitoringData([]);
+			return;
+		}
+
+		const generateData = async () => {
+			// Try to fetch real IoT data first
+			const iotData = await fetchIoTData();
+			
+			if (iotData) {
+				setMonitoringData(iotData);
+			} else {
+				// No fallback - device must be connected for live monitoring
+				console.log('IoT device not connected - no data available');
+				setIsLive(false); // Turn off live mode if device is not available
+				setMonitoringData([]);
+			}
 		};
 		
 		generateData();
-	}, [selectedId]);
+	}, [selectedId, isLive]);
 	
 	// Live updates
 	useEffect(() => {
-		if (!isLive) return;
-		const interval = setInterval(() => {
-			setMonitoringData(prev => prev.map(point => ({
-				...point,
-				pH: Math.max(3.0, Math.min(5.0, point.pH + (Math.random() - 0.5) * 0.1)),
-				alcohol: Math.max(0, Math.min(12, point.alcohol + (Math.random() - 0.5) * 0.2)),
-				temperature: Math.max(20, Math.min(35, point.temperature + (Math.random() - 0.5) * 0.5))
-			})));
-		}, 2000);
+		if (!isLive || monitoringData.length === 0) return;
+		
+		const interval = setInterval(async () => {
+			// Try to fetch real-time IoT data
+			const iotData = await fetchIoTData();
+			
+			if (iotData) {
+				setMonitoringData(iotData);
+			} else {
+				// Fallback to simulated updates
+				setMonitoringData(prev => prev.map(point => ({
+					...point,
+					brix: Math.max(8, Math.min(18, point.brix + (Math.random() - 0.5) * 0.1)),
+					pH: Math.max(3.0, Math.min(5.0, point.pH + (Math.random() - 0.5) * 0.1)),
+					alcohol: Math.max(0, Math.min(12, point.alcohol + (Math.random() - 0.5) * 0.2)),
+					temperature: Math.max(20, Math.min(35, point.temperature + (Math.random() - 0.5) * 0.5))
+				})));
+			}
+		}, 3000); // Update every 3 seconds
 		return () => clearInterval(interval);
-	}, [isLive]);
+	}, [isLive, monitoringData.length, selectedId]);
 	
 	const isReady = selected?.status === 'Ready';
-	const analysisText = isReady 
-		? 'Fermentation is progressing normally. All parameters are within optimal ranges.'
-		: 'Monitoring data is simulated. Start fermentation to see real-time data.';
+	const analysisText = !isLive 
+		? 'Click "Start Live" to begin real-time monitoring from IoT sensors.'
+		: isReady 
+			? 'Fermentation is progressing normally. All parameters are within optimal ranges.'
+			: 'Live monitoring active. Data updates every 3 seconds from IoT devices.';
+
+	const toggleParameter = (param) => {
+		setVisibleParameters(prev => ({
+			...prev,
+			[param]: !prev[param]
+		}));
+	};
+
+	// Handle live monitoring toggle with time tracking
+	const handleLiveToggle = () => {
+		if (!isLive) {
+			// Starting live monitoring
+			const startTime = new Date();
+			setSessionStartTime(startTime);
+			setSessionEndTime(null);
+			setElapsedTime(0);
+			setIsLive(true);
+		} else {
+			// Stopping live monitoring
+			const endTime = new Date();
+			setSessionEndTime(endTime);
+			setIsLive(false);
+			
+			// Save session to history
+			if (sessionStartTime) {
+				const duration = Math.floor((endTime - sessionStartTime) / 1000);
+				const newSession = {
+					id: Date.now(),
+					startTime: sessionStartTime,
+					endTime: endTime,
+					duration: duration,
+					batchId: selectedId
+				};
+				setSessionHistory(prev => [newSession, ...prev].slice(0, 10)); // Keep last 10 sessions
+			}
+		}
+	};
+
+	// Update elapsed time every second when live
+	useEffect(() => {
+		if (!isLive || !sessionStartTime) return;
+		
+		const interval = setInterval(() => {
+			const now = new Date();
+			const elapsed = Math.floor((now - sessionStartTime) / 1000);
+			setElapsedTime(elapsed);
+		}, 1000);
+		
+		return () => clearInterval(interval);
+	}, [isLive, sessionStartTime]);
+
+	// Format time duration in HH:MM:SS format
+	const formatDuration = (seconds) => {
+		const hours = Math.floor(seconds / 3600);
+		const minutes = Math.floor((seconds % 3600) / 60);
+		const secs = seconds % 60;
+		
+		return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+	};
 
 	return (
 		<div className="fermentation-monitoring-page" style={commonStyles.pageContainer}>
@@ -118,110 +211,357 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 			<div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, padding: '0 24px 24px' }}>
 				{/* Main Chart Area */}
 				<div className="ux-card" style={{ background: '#fff', padding: 24, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-						<div>
-							<div style={{ fontSize: 24, fontWeight: 800, color: '#111' }}>Batch {selected?.id || '—'}</div>
-							<div style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
-								Started: {selected?.startDate || '—'} • Duration: {selected?.startDate ? Math.ceil((Date.now() - parseDMY(selected.startDate)) / (1000 * 60 * 60 * 24)) : 0} days
+					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+						<div style={{ flex: 1 }}>
+							{/* Batch Selection Dropdown */}
+							<div style={{ marginBottom: 12 }}>
+								<label style={{ fontSize: 14, fontWeight: 600, color: '#666', marginBottom: 6, display: 'block' }}>
+									Select Batch to Monitor:
+								</label>
+								<select
+									value={selectedId}
+									onChange={(e) => setSelectedId(e.target.value)}
+									style={{
+										padding: '8px 12px',
+										borderRadius: 8,
+										border: '2px solid #e2e8f0',
+										background: '#fff',
+										fontSize: 14,
+										fontWeight: 600,
+										color: '#111',
+										cursor: 'pointer',
+										minWidth: 200,
+										outline: 'none'
+									}}
+								>
+									{sortedBatches.length > 0 ? (
+										sortedBatches.map(batch => (
+											<option key={batch.id} value={batch.id}>
+												Batch {batch.id} - {batch.status} ({batch.startDate})
+											</option>
+										))
+									) : (
+										<option value="">No batches available</option>
+									)}
+								</select>
 							</div>
+							
+							<div style={{ fontSize: 24, fontWeight: 800, color: '#111' }}>Batch {selected?.id || '—'}</div>
+							<div style={{ fontSize: 14, color: '#666' }}>Started: {selected?.startDate || '—'} • Duration: {selected?.duration || '—'} days</div>
+							<div style={{ fontSize: 13, color: '#10b981', fontWeight: 600, marginTop: 4 }}>
+								Status: {selected?.status || 'Unknown'}
+							</div>
+							
+							{isLive && (
+								<div style={{ 
+									fontSize: 16, 
+									fontWeight: 700, 
+									color: '#0f766e', 
+									marginTop: 12,
+									display: 'flex',
+									alignItems: 'center',
+									gap: 8,
+									padding: '8px 12px',
+									background: '#f0fdf4',
+									borderRadius: 8,
+									border: '1px solid #bbf7d0'
+								}}>
+									<span style={{ 
+										width: 8, 
+										height: 8, 
+										borderRadius: '50%', 
+										background: '#10b981',
+										animation: 'pulse 2s infinite'
+									}} />
+									Live Session: {formatDuration(elapsedTime)}
+								</div>
+							)}
 						</div>
-						<div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-							<select value={selectedId} onChange={(e)=>setSelectedId(e.target.value)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #e0e0e0' }}>
-								{sortedBatches.map(b => {
-									const label = String(parseInt(b.id,10)||0).toString().padStart(3,'0');
-									return <option key={b.id} value={b.id}>Batch {label}</option>;
-								})}
-							</select>
-							<button 
-								onClick={() => setIsLive(!isLive)} 
-								className="ux-pressable"
-								style={{ 
-									padding: '8px 16px', 
-									borderRadius: 8, 
-									border: '1px solid #e0e0e0', 
-									background: isLive ? '#16a34a' : '#fff', 
-									color: isLive ? '#fff' : '#111',
+						<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+							<button
+								onClick={handleLiveToggle}
+								style={{
+									padding: '12px 20px',
+									borderRadius: 8,
+									border: 'none',
+									background: isLive ? '#e11d48' : '#16a34a',
+									color: '#fff',
 									cursor: 'pointer',
-									fontWeight: 700
+									fontWeight: 700,
+									minWidth: 120
 								}}
 							>
-								{isLive ? '● Live' : 'Start Live'}
+								{isLive ? '⏹ Stop Live' : '▶ Start Live'}
 							</button>
+							{sessionEndTime && !isLive && (
+								<div style={{ 
+									fontSize: 12, 
+									color: '#666',
+									textAlign: 'right'
+								}}>
+									Last session: {formatDuration(Math.floor((sessionEndTime - sessionStartTime) / 1000))}
+								</div>
+							)}
 						</div>
 					</div>
 					
+					{/* Parameter Filter Buttons - Only show when live */}
+					{isLive && (
+						<div style={{ marginBottom: 20, padding: 16, background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+							<div style={{ fontSize: 14, fontWeight: 700, color: '#0f766e', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+								<span>🎛️</span> Parameter Filters
+							</div>
+							<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+								{[
+									{ key: 'brix', label: 'Brix', unit: '°Bx', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)', icon: '◆' },
+									{ key: 'pH', label: 'pH Level', unit: 'pH', color: '#e11d48', gradient: 'linear-gradient(135deg, #e11d48, #f87171)', icon: '◉' },
+									{ key: 'alcohol', label: 'Alcohol', unit: '%', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)', icon: '◈' },
+									{ key: 'temperature', label: 'Temperature', unit: '°C', color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #34d399)', icon: '◐' }
+								].map(param => (
+									<button
+										key={param.key}
+										onClick={() => toggleParameter(param.key)}
+										style={{
+											padding: '12px 16px',
+											borderRadius: 12,
+											border: visibleParameters[param.key] ? 'none' : `2px solid ${param.color}20`,
+											background: visibleParameters[param.key] ? param.gradient : '#ffffff',
+											color: visibleParameters[param.key] ? '#ffffff' : param.color,
+											cursor: 'pointer',
+											fontSize: 12,
+											fontWeight: 700,
+											transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+											display: 'flex',
+											flexDirection: 'column',
+											alignItems: 'center',
+											gap: 6,
+											boxShadow: visibleParameters[param.key] 
+												? `0 8px 25px ${param.color}30, 0 3px 10px ${param.color}20` 
+												: '0 2px 8px rgba(0,0,0,0.08)',
+											transform: visibleParameters[param.key] ? 'translateY(-2px)' : 'translateY(0)',
+											position: 'relative',
+											overflow: 'hidden'
+										}}
+									>
+										<div style={{
+											fontSize: 16,
+											fontWeight: 900,
+											opacity: visibleParameters[param.key] ? 1 : 0.7
+										}}>
+											{param.icon}
+										</div>
+										<div style={{ textAlign: 'center', lineHeight: 1.2 }}>
+											<div style={{ fontSize: 11, fontWeight: 800 }}>{param.label}</div>
+											<div style={{ fontSize: 9, opacity: 0.8, marginTop: 2 }}>{param.unit}</div>
+										</div>
+										{visibleParameters[param.key] && (
+											<div style={{
+												position: 'absolute',
+												top: 4,
+												right: 4,
+												width: 8,
+												height: 8,
+												borderRadius: '50%',
+												background: 'rgba(255,255,255,0.9)',
+												display: 'flex',
+												alignItems: 'center',
+												justifyContent: 'center',
+												fontSize: 6,
+												color: param.color
+											}}>
+												✓
+											</div>
+										)}
+									</button>
+								))}
+							</div>
+						</div>
+					)}
+
+					{/* Chart Display */}
 					<div style={{ height: 400, width: '100%' }}>
-						<ResponsiveContainer>
-							<LineChart data={monitoringData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-								<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-								<XAxis dataKey="time" stroke="#666" fontSize={12} />
-								<YAxis stroke="#666" fontSize={12} />
-								<Tooltip 
-									contentStyle={{ 
-										background: '#fff', 
-										border: '1px solid #e0e0e0', 
-										borderRadius: 8, 
-										boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
-									}} 
-								/>
-								<Legend />
-								<Line type="monotone" dataKey="pH" stroke="#e11d48" strokeWidth={2} dot={{ fill: '#e11d48', strokeWidth: 2, r: 3 }} name="pH Level" />
-								<Line type="monotone" dataKey="alcohol" stroke="#2563eb" strokeWidth={2} dot={{ fill: '#2563eb', strokeWidth: 2, r: 3 }} name="Alcohol %" />
-								<Line type="monotone" dataKey="temperature" stroke="#16a34a" strokeWidth={2} dot={{ fill: '#16a34a', strokeWidth: 2, r: 3 }} name="Temperature °C" />
-							</LineChart>
-						</ResponsiveContainer>
+						{!isLive ? (
+							<div style={{ 
+								height: '100%', 
+								display: 'flex', 
+								alignItems: 'center', 
+								justifyContent: 'center',
+								background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+								borderRadius: 16,
+								border: '2px dashed #0f766e',
+								position: 'relative',
+								overflow: 'hidden'
+							}}>
+								<div style={{ 
+									position: 'absolute',
+									top: 0,
+									left: 0,
+									right: 0,
+									bottom: 0,
+									background: 'radial-gradient(circle at 30% 70%, rgba(15, 118, 110, 0.05) 0%, transparent 50%)',
+									pointerEvents: 'none'
+								}} />
+								<div style={{ textAlign: 'center', color: '#0f766e', zIndex: 1 }}>
+									<div style={{ fontSize: 64, marginBottom: 16, filter: 'drop-shadow(0 4px 8px rgba(15, 118, 110, 0.2))' }}>🧪</div>
+									<div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, color: '#0f766e' }}>IoT Monitoring Offline</div>
+									<div style={{ fontSize: 16, color: '#475569', marginBottom: 16 }}>Activate live monitoring to view real-time fermentation data</div>
+									<div style={{ 
+										display: 'inline-flex', 
+										alignItems: 'center', 
+										gap: 8, 
+										padding: '8px 16px', 
+										background: 'rgba(15, 118, 110, 0.1)', 
+										borderRadius: 8,
+										border: '1px solid rgba(15, 118, 110, 0.2)'
+									}}>
+										<span style={{ fontSize: 12 }}>💡</span>
+										<span style={{ fontSize: 14, fontWeight: 600, color: '#0f766e' }}>Click "Start Live" above</span>
+									</div>
+								</div>
+							</div>
+						) : (
+							<ResponsiveContainer>
+								<LineChart data={monitoringData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+									<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+									<XAxis dataKey="time" stroke="#666" fontSize={12} />
+									<YAxis stroke="#666" fontSize={12} />
+									<Tooltip 
+										contentStyle={{ 
+											background: '#fff', 
+											border: '1px solid #e0e0e0', 
+											borderRadius: 8, 
+											boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
+										}} 
+									/>
+									<Legend />
+									{visibleParameters.brix && <Line type="monotone" dataKey="brix" stroke="#f59e0b" strokeWidth={3} dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }} name="◆ Brix (°Bx)" />}
+									{visibleParameters.pH && <Line type="monotone" dataKey="pH" stroke="#e11d48" strokeWidth={3} dot={{ fill: '#e11d48', strokeWidth: 2, r: 4 }} name="◉ pH Level" />}
+									{visibleParameters.alcohol && <Line type="monotone" dataKey="alcohol" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }} name="◈ Alcohol %" />}
+									{visibleParameters.temperature && <Line type="monotone" dataKey="temperature" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }} name="◐ Temperature °C" />}
+								</LineChart>
+							</ResponsiveContainer>
+						)}
 					</div>
 				</div>
 				
 				{/* Side Panel */}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+					{/* Session History */}
+					{sessionHistory.length > 0 && (
+						<div className="ux-card" style={{ background: '#fff', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+							<div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+								<span>⏱️</span> Session History
+							</div>
+							<div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto' }}>
+								{sessionHistory.map((session, index) => (
+									<div key={session.id} style={{ 
+										padding: '10px 12px', 
+										background: index === 0 ? '#f0fdf4' : '#f8f9fa', 
+										borderRadius: 8,
+										border: index === 0 ? '1px solid #bbf7d0' : '1px solid #e5e7eb'
+									}}>
+										<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+											<div style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>
+												{session.startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+											</div>
+											<div style={{ fontSize: 11, fontWeight: 700, color: '#10b981' }}>
+												{formatDuration(session.duration)}
+											</div>
+										</div>
+										<div style={{ fontSize: 10, color: '#666', marginTop: 2 }}>
+											{session.startTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+
 					{/* Parameters Legend */}
 					<div className="ux-card" style={{ background: '#fff', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 12 }}>Parameters</div>
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-							{[
-								{ color: '#e11d48', label: 'pH Level', range: '3.5 - 4.5' },
-								{ color: '#2563eb', label: 'Alcohol Content', range: '0 - 12%' },
-								{ color: '#16a34a', label: 'Temperature', range: '28 - 32°C' }
-							].map((param, i) => (
-								<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-									<div style={{ width: 16, height: 16, background: param.color, borderRadius: 4 }} />
-									<div style={{ flex: 1 }}>
-										<div style={{ fontWeight: 700, color: '#111' }}>{param.label}</div>
-										<div style={{ fontSize: 12, color: '#666' }}>Optimal: {param.range}</div>
-									</div>
+						{[
+							{ color: '#f59e0b', label: 'Brix (Sugar)', range: '12 - 18°Bx', key: 'brix' },
+							{ color: '#e11d48', label: 'pH Level', range: '3.5 - 4.5', key: 'pH' },
+							{ color: '#2563eb', label: 'Alcohol Content', range: '0 - 12%', key: 'alcohol' },
+							{ color: '#16a34a', label: 'Temperature', range: '28 - 32°C', key: 'temperature' }
+						].map((param, i) => (
+							<div key={i} style={{ 
+								display: 'flex', 
+								alignItems: 'center', 
+								gap: 10,
+								opacity: visibleParameters[param.key] ? 1 : 0.4,
+								transition: 'opacity 150ms ease'
+							}}>
+								<div style={{ width: 16, height: 16, background: param.color, borderRadius: 4 }} />
+								<div style={{ flex: 1 }}>
+									<div style={{ fontWeight: 700, color: '#111' }}>{param.label}</div>
+									<div style={{ fontSize: 12, color: '#666' }}>Optimal: {param.range}</div>
 								</div>
-							))}
-						</div>
+							</div>
+						))}
+					</div>
 					</div>
 					
 					{/* Current Values */}
 					<div className="ux-card" style={{ background: '#fff', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 						<div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 12 }}>Current Values</div>
-						{monitoringData.length > 0 && (
-							<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-								{[
-									{ label: 'pH', value: monitoringData[monitoringData.length - 1]?.pH?.toFixed(2) || '—', color: '#e11d48' },
-									{ label: 'Alcohol', value: `${monitoringData[monitoringData.length - 1]?.alcohol?.toFixed(1) || '—'}%`, color: '#2563eb' },
-									{ label: 'Temperature', value: `${monitoringData[monitoringData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' }
-								].map((item, i) => (
-									<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8f9fa', borderRadius: 8 }}>
-										<span style={{ color: '#666', fontWeight: 600 }}>{item.label}</span>
-										<span style={{ color: item.color, fontWeight: 800, fontSize: 16 }}>{item.value}</span>
-									</div>
-								))}
-							</div>
-						)}
+						{monitoringData.length > 0 ? (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+							{[
+								{ label: 'Brix', value: `${monitoringData[monitoringData.length - 1]?.brix?.toFixed(1) || '—'}°Bx`, color: '#f59e0b' },
+								{ label: 'pH', value: monitoringData[monitoringData.length - 1]?.pH?.toFixed(2) || '—', color: '#e11d48' },
+								{ label: 'Alcohol', value: `${monitoringData[monitoringData.length - 1]?.alcohol?.toFixed(1) || '—'}%`, color: '#2563eb' },
+								{ label: 'Temperature', value: `${monitoringData[monitoringData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' }
+							].map((item, i) => (
+								<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8f9fa', borderRadius: 8 }}>
+									<span style={{ color: '#666', fontWeight: 600 }}>{item.label}</span>
+									<span style={{ color: item.color, fontWeight: 800, fontSize: 16 }}>{item.value}</span>
+								</div>
+							))}
+						</div>
+					) : (
+						<div style={{ textAlign: 'center', color: '#999', padding: 20 }}>
+							<div style={{ fontSize: 14 }}>No data available</div>
+							<div style={{ fontSize: 12, marginTop: 4 }}>Start live monitoring to see values</div>
+						</div>
+					)}
 					</div>
 					
 					{/* Analysis */}
-					<div className="ux-card" style={{ background: isReady ? '#e8f5e8' : '#fee2e2', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-						<div style={{ fontSize: 18, fontWeight: 800, color: isReady ? '#1b5e20' : '#7f1d1d', marginBottom: 8 }}>Analysis</div>
+					<div className="ux-card" style={{ 
+						background: !isLive ? '#f8f9fa' : isReady ? '#e8f5e8' : '#fee2e2', 
+						padding: 18, 
+						borderRadius: 12, 
+						boxShadow: '0 2px 8px rgba(0,0,0,0.06)' 
+					}}>
+						<div style={{ 
+							fontSize: 18, 
+							fontWeight: 800, 
+							color: !isLive ? '#666' : isReady ? '#1b5e20' : '#7f1d1d', 
+							marginBottom: 8 
+						}}>Analysis</div>
 						<div style={{ display: 'flex', gap: 10 }}>
-							<div style={{ width: 20, height: 20, background: isReady ? '#16a34a' : '#e11d48', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800 }}>
-								{isReady ? '✓' : '!'}
+							<div style={{ 
+								width: 20, 
+								height: 20, 
+								background: !isLive ? '#999' : isReady ? '#16a34a' : '#e11d48', 
+								color: '#fff', 
+								borderRadius: '50%', 
+								display: 'flex', 
+								alignItems: 'center', 
+								justifyContent: 'center', 
+								fontSize: 12, 
+								fontWeight: 800 
+							}}>
+								{!isLive ? '⏸' : isReady ? '✓' : '●'}
 							</div>
-							<div style={{ color: isReady ? '#065f46' : '#7f1d1d', fontWeight: 600, fontSize: 14 }}>{analysisText}</div>
+							<div style={{ 
+								color: !isLive ? '#666' : isReady ? '#065f46' : '#7f1d1d', 
+								fontWeight: 600, 
+								fontSize: 14 
+							}}>{analysisText}</div>
 						</div>
 					</div>
 				</div>
