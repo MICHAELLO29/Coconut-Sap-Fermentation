@@ -111,7 +111,7 @@ const Dashboard = ({ onToggleMenu }) => {
 		let aborted = false;
 		const fetchBatches = async () => {
 			try {
-				const res = await fetch(`${API_BASE}/api/batches`);
+				const res = await fetch(`${API_BASE}/get_batches_list`);
 				if (!res.ok) throw new Error('Bad response');
 				const data = await res.json();
 				if (!aborted) setApiBatches(Array.isArray(data) ? data : null);
