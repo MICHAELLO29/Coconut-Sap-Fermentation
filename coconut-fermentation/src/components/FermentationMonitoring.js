@@ -29,9 +29,9 @@ const computeStatuses = (list) => {
 	return sorted.map((b, idx) => ({ ...b, status: idx === 0 ? 'Ready' : 'N/A' }));
 };
 
-const FermentationMonitoring = ({ onToggleMenu }) => {
+const FermentationMonitoring = ({ onToggleMenu, autoStartLive, onAutoStartConsumed}) => {
 	useGlobalStyles(); // Inject global styles
-	
+
 	// Load batches similar to Dashboard
 	const defaultBatches = useMemo(() => ([
 		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', brix: 16.0, alcohol: 25.0, temperature: '32.0 C', timeInterval: '56:04:01' },
@@ -69,6 +69,14 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		brix: true
 	});
 	
+	// Auto-start live monitoring if flag is set
+	useEffect(() => {
+		if (autoStartLive && !isLive) {
+			handleLiveToggle();
+			if (onAutoStartConsumed) onAutoStartConsumed(); // reset the flag in App.js
+		}
+	}, [autoStartLive]);
+  
 	// Time tracking for live sessions
 	const [sessionStartTime, setSessionStartTime] = useState(null);
 	const [sessionEndTime, setSessionEndTime] = useState(null);
@@ -79,7 +87,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	const fetchIoTData = async () => {
 		try {
 			const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
-			const response = await fetch(`${apiBase}/api/fermentation/live/${selectedId}`);
+			const response = await fetch(`${apiBase}/readings/${selectedId}`);
 			if (response.ok) {
 				const data = await response.json();
 				return data;
