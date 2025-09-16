@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS batches (
     batch_id TEXT UNIQUE,
     start_date TEXT,
     end_date TEXT,
+    liter REAL,
     is_logging INTEGER DEFAULT 0
 )
 """)
