@@ -136,7 +136,7 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
 
       if (data.batch_id) {
         alert(`Batch ${data.batch_id} started`);
-        onNavigate("fermentation-monitoring", { autoStartLive: true });
+        onNavigate("fermentation-monitoring");
       }
     } catch (error) {
       console.error("Error creating batch:", error);
@@ -205,12 +205,26 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
   // Dates
   const today = useMemo(() => new Date(), []);
   const [endOffsetDays, setEndOffsetDays] = useState(4); // default within 3–5
-  const formattedStart = useMemo(() => today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }), [today]);
+  // ISO storage (for sending to Flask / DB)
+  const formattedStart = useMemo(() => {
+    return today.toISOString().slice(0, 19).replace("T", " ");
+  }, [today]);
+  // End date
   const formattedEnd = useMemo(() => {
     const d = new Date(today);
     d.setDate(d.getDate() + endOffsetDays);
-    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    return d.toISOString().slice(0, 19).replace("T", " ");
   }, [today, endOffsetDays]);
+  // User-friendly display (e.g., September 17, 2025)
+  function formatReadable(dateString) {
+  const d = new Date(dateString);
+  return d.toLocaleDateString('en-US', { 
+    month: 'long', 
+    day: 'numeric', 
+    year: 'numeric' 
+  });
+}
+
 
   const handleChangeEndDate = () => {
     // Demo cycle 3 → 4 → 5 → 3
@@ -359,9 +373,9 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
             <div className="cb-card" style={{ background: '#eaf6ea', padding: 0, borderRadius: 12, border: '2px solid #cfe3cf', overflow: 'hidden' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
                 <div style={{ padding: 14, background: '#ffffff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf', color: '#065f46', fontWeight: 800 }}>Start Date</div>
-                <div style={{ padding: 14, background: '#ffffff', borderBottom: '1px solid #cfe3cf', textAlign: 'right', color: '#16a34a', fontWeight: 900 }}>{formattedStart}</div>
+                <div style={{ padding: 14, background: '#ffffff', borderBottom: '1px solid #cfe3cf', textAlign: 'right', color: '#16a34a', fontWeight: 900 }}>{formatReadable(formattedStart)}</div>
                 <div style={{ padding: 14, background: '#ffffff', borderRight: '1px solid #cfe3cf', color: '#065f46', fontWeight: 800 }}>End Date</div>
-                <div style={{ padding: 14, background: '#ffffff', textAlign: 'right', color: '#16a34a', fontWeight: 900 }}>{formattedEnd}</div>
+                <div style={{ padding: 14, background: '#ffffff', textAlign: 'right', color: '#16a34a', fontWeight: 900 }}>{formatReadable(formattedEnd)}</div>
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems:'center' }}>
