@@ -4,7 +4,7 @@ import sqlite3
 conn = sqlite3.connect("ispindel.db")
 cur = conn.cursor()
 
-# Insert dummy batch
+# Insert dummy batch, this will send out an active batch that is logging
 cur.execute("INSERT OR IGNORE INTO batches (batch_id, start_date, end_date, liter, is_logging) VALUES (?, ?, ?, ?, 1)",
             ("001", "2025-03-20", "2025-03-22", 20.0))
 
