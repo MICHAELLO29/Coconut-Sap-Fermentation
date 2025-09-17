@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import Header from './Header';
 import { commonStyles, useGlobalStyles } from './styles/GlobalStyles';
 
@@ -249,8 +249,30 @@ const Dashboard = ({ onToggleMenu }) => {
 		}
 		return rows;
 	};
-	const litersChartData = useMemo(() => aggregateBy(lambanogData, 'liters', litersRange), [lambanogData, litersRange]);
+	
+	// old way (no longer used since we fetch from API)
+	//const litersChartData = useMemo(() => aggregateBy(lambanogData, 'liters', litersRange), [lambanogData, litersRange]);
+	//console.log('Liters chart data:', litersChartData);
 
+	const [litersChartData, setLitersChartData] = useState([]);
+	useEffect(() => {
+		fetch(`${API_BASE}/get_liter_chart`)
+		.then(res => res.json())
+		.then(data => setLitersChartData(data))
+		.catch(err => console.error("Error fetching liter chart: ", err));
+	}, []);
+
+	// convert iso format date to user-friendly date display
+	function formatReadable(dateString) {
+	const d = new Date(dateString);
+	return d.toLocaleDateString('en-US', { 
+		month: 'long', 
+		day: 'numeric', 
+		year: 'numeric' 
+	});
+	}
+
+	// render
 	return (
 		<div style={commonStyles.pageContainer}>
 			<Header title="Coconut Sap Fermentation Center" rightContent={timeEl} onToggleMenu={onToggleMenu} />
@@ -305,26 +327,25 @@ const Dashboard = ({ onToggleMenu }) => {
 						<table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 14 }}>
 							<thead>
 								<tr style={{ background: '#fff', color: '#111' }}>
-									{['Batch ID','Start Date','End Date','pH Level (%)','Brix (%)','Alcohol (%)','Fermentation Status'].map((h) => (
-										<th key={h} style={commonStyles.tableHeader}>
-											{h}
-										</th>
+									{['Batch ID','Start Date','End Date','Liter (L)','Logging Status', 'Fermentation Status'].map((h) => (
+									<th key={h} style={commonStyles.tableHeader}>
+										{h}
+									</th>
 									))}
 								</tr>
-							</thead>
-							<tbody>
+								</thead>
+								<tbody>
 								{filteredBatches.map((batch) => (
 									<tr key={batch.id} style={{ backgroundColor: '#fff' }}>
-										<td style={{ ...commonStyles.tableCell, wordBreak: 'break-word' }}>{batch.id}</td>
-										<td style={commonStyles.tableCell}>{batch.startDate}</td>
-										<td style={commonStyles.tableCell}>{batch.endDate}</td>
-										<td style={commonStyles.tableCell}>{batch.status === 'Ready' ? batch.phLevel : 'N/A'}</td>
-										<td style={commonStyles.tableCell}>{batch.status === 'Ready' ? batch.brix : 'N/A'}</td>
-										<td style={commonStyles.tableCell}>{batch.status === 'Ready' ? batch.alcohol : 'N/A'}</td>
-										<td style={{ ...commonStyles.tableCell, color: batch.status === 'Ready' ? '#16a34a' : '#e11d48', fontWeight: 800 }}>{batch.status === 'Ready' ? 'Ready' : 'NA'}</td>
+									<td style={{ ...commonStyles.tableCell, wordBreak: 'break-word' }}>{batch.id}</td>
+									<td style={commonStyles.tableCell}>{formatReadable(batch.startDate)}</td>
+									<td style={commonStyles.tableCell}>{formatReadable(batch.endDate)}</td>
+									<td style={commonStyles.tableCell}>{batch.liter || 'N/A'}</td>
+									<td style={{ ...commonStyles.tableCell, color: batch.is_logging === 1 ? 'rgba(72, 173, 255, 1)' : '#e11d48', fontWeight: 800}}>{batch.is_logging === 1 ? 'Ongoing' : 'Stopped'}</td>
+									<td style={{ ...commonStyles.tableCell, color: batch.status === 'Ready' ? '#16a34a' : '#e11d48', fontWeight: 800 }}>{batch.status === 'Ready' ? 'Ready' : 'NA'}</td>
 									</tr>
 								))}
-							</tbody>
+								</tbody>
 						</table>
 						)}
 					</div>
@@ -333,7 +354,7 @@ const Dashboard = ({ onToggleMenu }) => {
 
 			<div className="chartCard" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', margin: 20, marginBottom: 30 }}>
 				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-					<h3 style={{ color: '#333', fontSize: 18, fontWeight: 600 }}>Total Liters of Lambanog Made</h3>
+					<h3 style={{ color: '#333', fontSize: 18, fontWeight: 600 }}>Total Liters of Tuba Made</h3>
 					<select value={litersRange} onChange={(e) => setLitersRange(e.target.value)} style={{ fontSize: 12, color: '#333', border: '1px solid #e0e0e0', borderRadius: 6, padding: '4px 8px', background: '#fff' }}>
 						<option value="day">Day</option>
 						<option value="month">Month</option>
@@ -342,15 +363,16 @@ const Dashboard = ({ onToggleMenu }) => {
 				</div>
 				<div style={{ width: '100%', height: 400 }}>
 					{litersChartData.length > 0 ? (
-						<ResponsiveContainer width="100%" height="100%">
+						<ResponsiveContainer width="100%" height={300}>
 							<BarChart data={litersChartData}>
 								<CartesianGrid strokeDasharray="3 3" />
-								<XAxis dataKey="date" />
+								<XAxis dataKey="month" />
 								<YAxis />
 								<Tooltip />
-								<Bar dataKey="liters" fill="#4CAF50" />
+								<Legend />
+								<Bar dataKey="total_liters" fill="#4CAF50" name="Liters (L)" />
 							</BarChart>
-						</ResponsiveContainer>
+							</ResponsiveContainer>
 					) : (
 						<div style={{ 
 							height: '100%', 
