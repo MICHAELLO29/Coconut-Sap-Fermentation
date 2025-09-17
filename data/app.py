@@ -209,6 +209,25 @@ def active_batch():
     else:
         return jsonify({"active": False})
     
+@app.route("/active_batches_list", methods=["GET"])
+def active_batches():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT batch_id, start_date, end_date
+        FROM batches
+        WHERE is_logging = 1
+    """)
+    rows = cur.fetchall()
+    conn.close()
+
+    # Return as JSON list
+    return jsonify([{
+        "id": row["batch_id"],
+        "startDate": row["start_date"],
+        "endDate": row["end_date"]
+    } for row in rows])
+
 
 @app.route("/check_active/<batch_id>", methods=["GET"])
 def check_active(batch_id):
@@ -248,6 +267,24 @@ def get_batches_list():
 
     conn.close()
     return jsonify(batches)
+
+@app.route("/get_liter_chart", methods=["GET"])
+def get_liter_chart():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT strftime('%Y-%m', start_date) AS month, SUM(liter) AS total_liters
+        FROM batches
+        WHERE liter IS NOT NULL
+        GROUP BY month
+        ORDER BY month ASC
+    """)
+    rows = cur.fetchall()
+    conn.close()
+
+   
+    return jsonify([{"month": row["month"], "total_liters": row["total_liters"]} for row in rows])
 # Start server
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
