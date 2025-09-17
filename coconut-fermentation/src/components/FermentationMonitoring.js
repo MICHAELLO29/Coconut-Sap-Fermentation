@@ -29,7 +29,7 @@ const computeStatuses = (list) => {
 	return sorted.map((b, idx) => ({ ...b, status: idx === 0 ? 'Ready' : 'N/A' }));
 };
 
-const FermentationMonitoring = ({ onToggleMenu, autoStartLive, onAutoStartConsumed}) => {
+const FermentationMonitoring = ({ onToggleMenu }) => {
 	useGlobalStyles(); // Inject global styles
 
 	// Load batches similar to Dashboard
@@ -41,22 +41,56 @@ const FermentationMonitoring = ({ onToggleMenu, autoStartLive, onAutoStartConsum
 		{ id: '005', startDate: '30/05/25', endDate: '02/06/25' }
 	]), []);
 	
-	const batchesRaw = useMemo(() => {
-		try {
-			const saved = JSON.parse(localStorage.getItem('batches') || 'null');
-			return saved && Array.isArray(saved) && saved.length ? saved : defaultBatches;
-		} catch { return defaultBatches; }
-	}, [defaultBatches]);
-	
+	// Hold raw data from API
+	const [batchesRaw, setBatchesRaw] = useState([]);
+
+	// Compute enriched batches (if you want to keep computeStatuses logic)
 	const batches = useMemo(() => computeStatuses(batchesRaw), [batchesRaw]);
-	const sortedBatches = useMemo(() =>
-		[...batches].sort((a,b) => (parseInt(a.id,10)||0) - (parseInt(b.id,10)||0)),
-		[batches]
+
+	// Keep them sorted (smallest → largest, or flip if you want newest first)
+	const sortedBatches = useMemo(
+	() =>
+		[...batches].sort(
+		(a, b) => (parseInt(a.id, 10) || 0) - (parseInt(b.id, 10) || 0)
+		),
+	[batches]
 	);
-	
-	const [selectedId, setSelectedId] = useState(sortedBatches[0]?.id || '');
-	useEffect(()=>{ if (sortedBatches.length && !sortedBatches.find(b=>b.id===selectedId)) setSelectedId(sortedBatches[0].id); }, [sortedBatches, selectedId]);
-	
+
+	// Track selected batch ID
+	const [selectedId, setSelectedId] = useState("");
+
+	// Fetch active batches from Flask
+	useEffect(() => {
+	const fetchActiveBatches = async () => {
+		try {
+		const res = await fetch("http://localhost:5000/active_batches_list");
+		if (res.ok) {
+			const data = await res.json();
+			setBatchesRaw(data);
+
+			// default to first if none selected
+			if (data.length > 0 && !selectedId) {
+			setSelectedId(data[0].id);
+			}
+		}
+		} catch (err) {
+		console.error("Error fetching active batches:", err);
+		}
+	};
+	fetchActiveBatches();
+	}, [selectedId]);
+
+	// Keep selection in sync if sorted list changes
+	useEffect(() => {
+	if (
+		sortedBatches.length &&
+		!sortedBatches.find((b) => b.id === selectedId)
+	) {
+		setSelectedId(sortedBatches[0].id);
+	}
+	}, [sortedBatches, selectedId]);
+
+
 	const selected = useMemo(() => sortedBatches.find(b => b.id === selectedId) || sortedBatches[0] || {}, [sortedBatches, selectedId]);
 	
 	// Generate monitoring data
@@ -69,14 +103,6 @@ const FermentationMonitoring = ({ onToggleMenu, autoStartLive, onAutoStartConsum
 		brix: true
 	});
 	
-	// Auto-start live monitoring if flag is set
-	useEffect(() => {
-		if (autoStartLive && !isLive) {
-			handleLiveToggle();
-			if (onAutoStartConsumed) onAutoStartConsumed(); // reset the flag in App.js
-		}
-	}, [autoStartLive]);
-  
 	// Time tracking for live sessions
 	const [sessionStartTime, setSessionStartTime] = useState(null);
 	const [sessionEndTime, setSessionEndTime] = useState(null);
@@ -241,15 +267,15 @@ const FermentationMonitoring = ({ onToggleMenu, autoStartLive, onAutoStartConsum
 										minWidth: 200,
 										outline: 'none'
 									}}
-								>
-									{sortedBatches.length > 0 ? (
-										sortedBatches.map(batch => (
-											<option key={batch.id} value={batch.id}>
-												Batch {batch.id} - {batch.status} ({batch.startDate})
-											</option>
+									>
+									{batches.length > 0 ? (
+										batches.map(batch => (
+										<option key={batch.id} value={batch.id}>
+											Batch {batch.id}
+										</option>
 										))
 									) : (
-										<option value="">No batches available</option>
+										<option value="">No active batches</option>
 									)}
 								</select>
 							</div>
