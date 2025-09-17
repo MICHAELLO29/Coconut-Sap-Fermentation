@@ -271,26 +271,21 @@ const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 		logDate: { text: 'Required', valid: String(formData.logDate||'').trim()?true:false }
 	};
 
+	// Shortcut key for saving (Enter)
 	useEffect(()=>{
 		const onKey = (e) => { if (e.key==='Enter' && reqOk && !saving) handleSave(); };
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	}, [reqOk, saving]);
 
-	const getNextId = () => {
-		try {
-			const arr = JSON.parse(localStorage.getItem('batches') || '[]');
-			const max = arr.reduce((m, b) => {
-				const n = parseInt(b.id, 10);
-				return Number.isFinite(n) && n > m ? n : m;
-			}, 0);
-			const next = max + 1;
-			return { num: next, str: String(next).padStart(3, '0') };
-		} catch {
-			return { num: 1, str: '001' };
-		}
-	};
-	const nextId = getNextId();
+	const [nextId, setNextId] = useState(null);
+	  // Fetch next batch ID when page loads
+	useEffect(() => {
+	fetch("http://localhost:5000/next_batch_id")
+		.then(res => res.json())
+		.then(data => setNextId(data.next_batch_id))
+		.catch(err => console.error("Batch ID fetch error:", err));
+	}, []);
 
 	const handleSave = async () => {
 		try {
@@ -298,12 +293,12 @@ const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 			if (!reqOk) { if (firstInvalidRef.current) firstInvalidRef.current.focus(); return; }
 			setSaving(true);
 			const existing = JSON.parse(localStorage.getItem('batches') || '[]');
-			const fresh = getNextId();
+			const fresh = setNextId();
 			const start = formData.logDate || formatDMY(new Date());
 			// Estimate completion within 3–5 days. Use 4 days as midpoint.
 			const end = addDays(start, 4);
 			const newRec = {
-				id: fresh.str,
+				id: fresh,
 				startDate: start,
 				endDate: end,
 				brix: formData.brix || 'N/A',
@@ -312,10 +307,11 @@ const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 				timeInterval: formData.timeInterval || 'N/A',
 				produced: formData.producedLiters ? `${parseFloat(formData.producedLiters)} L` : 'N/A'
 			};
+			console.log(fresh, newRec);
 
 			// Attempt to persist through Flask API; fallback to localStorage if offline
 			try {
-				await fetch(`${API_BASE}/api/batches`, {
+				await fetch(`${API_BASE}/batches`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(newRec)
@@ -372,7 +368,7 @@ const SaveNewRecord = ({ onToggleMenu, onNavigate }) => {
 						<div className="ux-meter" style={{ flex:1 }}><div className="ux-meter-bar" style={{ width: `${Math.round((completed/Math.max(1,total))*100)}%` }} /></div>
 						<div style={{ fontSize:12, color:'#166534', fontWeight:800 }}>{completed}/{total}</div>
 					</div>
-					<div style={{ background: '#f1f2f4', display: 'inline-block', padding: '8px 14px', borderRadius: 10, marginBottom: 18, color: '#333', fontWeight: 700 }}>Batch Number: {nextId.str}</div>
+					<div style={{ background: '#f1f2f4', display: 'inline-block', padding: '8px 14px', borderRadius: 10, marginBottom: 18, color: '#333', fontWeight: 700 }}>Batch Number: {nextId}</div>
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 						{inputBox('Brix (sugar)', 'brix', formData.brix, helpers.brix)}
 						{inputBox('Alcohol Content', 'alcoholContent', formData.alcoholContent, helpers.alcoholContent)}
