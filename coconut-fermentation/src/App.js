@@ -54,9 +54,8 @@ function App() {
 			case 'fermentation-monitoring':
   				return (
 					<FermentationMonitoring 
-					onToggleMenu={handleToggleMenu} 
-					autoStartLive={autoStartLive} 
-					onAutoStartConsumed={() => setAutoStartLive(false)} 
+					onToggleMenu={handleToggleMenu}
+					onNavigate={handleNavigate}
 					/>
 				)
 			case 'confirm-batch':
