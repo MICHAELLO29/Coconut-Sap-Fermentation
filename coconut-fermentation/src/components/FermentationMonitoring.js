@@ -245,7 +245,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		<div className="fermentation-monitoring-page" style={commonStyles.pageContainer}>
 			<Header title="Fermentation Monitoring" onToggleMenu={onToggleMenu} />
 			
-			<div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, padding: '0 24px 24px' }}>
+			<div className="fermentation-main-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, padding: '0 24px 24px' }}>
 				{/* Main Chart Area */}
 				<div className="ux-card" style={{ background: '#fff', padding: 24, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
@@ -375,7 +375,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 									{showDataPoints ? 'Hide Points' : 'Show Points'}
 								</button>
 							</div>
-							<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+							<div className="inputRow" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
 								{[
 									{ key: 'brix', label: 'Brix', unit: '°Bx', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)', icon: '◆' },
 									{ key: 'pH', label: 'pH Level', unit: 'pH', color: '#e11d48', gradient: 'linear-gradient(135deg, #e11d48, #f87171)', icon: '◉' },

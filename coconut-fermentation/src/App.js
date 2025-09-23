@@ -8,6 +8,7 @@ import SideMenu from './components/SideMenu';
 
 function App() {
 	const [currentPage, setCurrentPage] = useState('dashboard');
+	// Ensure menu always starts closed
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
@@ -15,15 +16,23 @@ function App() {
 		const handleResize = () => {
 			const newIsMobile = window.innerWidth <= 768;
 			setIsMobile(newIsMobile);
-			// Auto-close menu when switching to desktop
-			if (!newIsMobile && menuOpen) {
-				setMenuOpen(false);
-			}
+			// REMOVED: No automatic menu closing/opening on resize
+			// Sidebar should ONLY be controlled by user clicks
 		};
 
-		window.addEventListener('resize', handleResize);
-		return () => window.removeEventListener('resize', handleResize);
-	}, []);
+		// Debounce resize events
+		let resizeTimeout;
+		const debouncedResize = () => {
+			clearTimeout(resizeTimeout);
+			resizeTimeout = setTimeout(handleResize, 200);
+		};
+
+		window.addEventListener('resize', debouncedResize);
+		return () => {
+			window.removeEventListener('resize', debouncedResize);
+			clearTimeout(resizeTimeout);
+		};
+	}, []); // Empty dependency array - no state dependencies
 
 	const [autoStartLive, setAutoStartLive] = useState(false);
 
@@ -36,10 +45,12 @@ function App() {
 	};
 
 	const handleToggleMenu = () => {
+		console.log('Menu toggle clicked:', !menuOpen); // Debug log
 		setMenuOpen(!menuOpen);
 	};
-
+	
 	const handleCloseMenu = () => {
+		console.log('Menu close triggered'); // Debug log
 		setMenuOpen(false);
 	};
 
@@ -89,6 +100,7 @@ function App() {
 				/>
 			)}
 			
+			{/* Only render SideMenu when needed */}
 			<SideMenu
 				isOpen={menuOpen}
 				onClose={handleCloseMenu}
@@ -103,10 +115,11 @@ function App() {
 				display: 'flex',
 				flexDirection: 'column',
 				minWidth: 0,
-				transition: 'transform 200ms ease',
-				transform: isMobile ? 'translateX(0)' : (menuOpen ? 'translateX(300px)' : 'translateX(0)'),
+				// Simplified: Always use overlay approach to prevent layout shifts
 				width: '100%',
-				overflow: 'hidden'
+				height: '100vh',
+				overflow: 'hidden',
+				position: 'relative'
 			}}>
 				{renderCurrentPage()}
 			</div>

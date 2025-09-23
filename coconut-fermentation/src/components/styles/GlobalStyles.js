@@ -296,45 +296,242 @@ const globalCSS = `
     transform: scale(0.98); 
   }
   
-  /* Responsive Design Improvements */
+  /* Comprehensive Mobile Responsiveness - Facebook-like */
+  
+  /* Responsive table container for horizontal scrolling */
+  .responsive-table-container {
+    overflow-x: scroll !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    /* Ensure touch scrolling works on all devices */
+    touch-action: pan-x;
+    /* Force scrollbar to be visible */
+    scrollbar-width: auto !important;
+    /* Prevent table from collapsing */
+    min-width: 100%;
+    width: 100%;
+    /* Ensure container can scroll */
+    max-width: 100%;
+    position: relative;
+  }
+  
+  /* Force table to be wider than container for scrolling */
+  .responsive-table-container table {
+    min-width: 1000px !important;
+    width: 1000px !important;
+    table-layout: fixed !important;
+    /* Force table to be wider than any mobile container */
+    display: table !important;
+  }
+  
+  /* Force horizontal scrolling on all screen sizes */
+  .responsive-table-container {
+    display: block !important;
+    overflow-x: scroll !important;
+    overflow-y: hidden !important;
+    /* Ensure container can't expand to fit table */
+    max-width: 100% !important;
+  }
+  
+  /* Add scroll indicator for mobile */
+  .responsive-table-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 20px;
+    height: 100%;
+    background: linear-gradient(to left, rgba(255,255,255,0.8), transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
   @media (max-width: 768px) {
-    .grid-3 {
-      grid-template-columns: 1fr !important;
-      gap: var(--spacing-4) !important;
-      margin: var(--spacing-4) !important;
-    }
-    
-    .card, .tableWrap, .chartCard {
-      padding: var(--spacing-4) !important;
-      margin: var(--spacing-4) !important;
-    }
-    
-    .inputRow {
-      flex-direction: column !important;
-      align-items: stretch !important;
-    }
-    
-    .inputRow label {
-      min-width: auto !important;
-      margin-bottom: var(--spacing-2) !important;
-    }
-    
-    .detailsGrid, .summaryGrid, .monitorGrid {
-      grid-template-columns: 1fr !important;
-      gap: var(--spacing-4) !important;
-      padding: 0 var(--spacing-4) var(--spacing-4) !important;
+    .responsive-table-container::after {
+      opacity: 1;
     }
   }
   
-  @media (max-width: 480px) {
+  /* Enhanced scrollbar styling for better visibility */
+  .responsive-table-container::-webkit-scrollbar {
+    height: 16px !important;
+    width: 16px !important;
+    display: block !important;
+  }
+  
+  .responsive-table-container::-webkit-scrollbar-track {
+    background: #f1f5f9 !important;
+    border-radius: 8px !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+  
+  .responsive-table-container::-webkit-scrollbar-thumb {
+    background: #16a34a !important;
+    border-radius: 8px !important;
+    border: 2px solid #f1f5f9 !important;
+    min-height: 30px !important;
+  }
+  
+  .responsive-table-container::-webkit-scrollbar-thumb:hover {
+    background: #15803d !important;
+  }
+  
+  .responsive-table-container::-webkit-scrollbar-thumb:active {
+    background: #14532d !important;
+  }
+  
+  /* Mobile scrollbar visibility and scroll hint */
+  @media (max-width: 768px) {
+    .responsive-table-container::-webkit-scrollbar {
+      height: 12px !important;
+      display: block !important;
+    }
+    
+    .responsive-table-container {
+      scrollbar-width: auto !important;
+      scrollbar-color: #16a34a #f1f5f9 !important;
+      /* Force scrollbar to always be visible on mobile */
+      overflow-x: scroll !important;
+    }
+    
+    /* Show mobile scroll hint */
+    .mobile-scroll-hint {
+      display: flex !important;
+    }
+  }
+  
+  /* Mobile-first responsive breakpoints */
+  
+  /* Ultra-small screens (iPhone SE, small Android) */
+  @media (max-width: 375px) {
     .grid-3 {
-      margin: var(--spacing-3) !important;
+      grid-template-columns: 1fr !important;
       gap: var(--spacing-3) !important;
+      margin: var(--spacing-2) !important;
     }
     
     .card, .tableWrap, .chartCard {
       padding: var(--spacing-3) !important;
+      margin: var(--spacing-2) !important;
+      border-radius: var(--radius-md) !important;
+    }
+    
+    .responsive-table-container table {
+      min-width: 800px !important;
+      font-size: 10px !important;
+    }
+    
+    .responsive-table-container th,
+    .responsive-table-container td {
+      padding: 8px 6px !important;
+      white-space: nowrap !important;
+    }
+    
+    /* Batch ID column */
+    .responsive-table-container th:nth-child(1),
+    .responsive-table-container td:nth-child(1) {
+      min-width: 50px !important;
+      max-width: 50px !important;
+    }
+    
+    /* Date columns */
+    .responsive-table-container th:nth-child(2),
+    .responsive-table-container td:nth-child(2),
+    .responsive-table-container th:nth-child(3),
+    .responsive-table-container td:nth-child(3) {
+      min-width: 80px !important;
+      max-width: 80px !important;
+    }
+    
+    /* Liter column */
+    .responsive-table-container th:nth-child(4),
+    .responsive-table-container td:nth-child(4) {
+      min-width: 60px !important;
+      max-width: 60px !important;
+    }
+    
+    /* Status columns */
+    .responsive-table-container th:nth-child(5),
+    .responsive-table-container td:nth-child(5),
+    .responsive-table-container th:nth-child(6),
+    .responsive-table-container td:nth-child(6) {
+      min-width: 70px !important;
+      max-width: 70px !important;
+    }
+  }
+  
+  /* Small mobile screens */
+  @media (max-width: 480px) {
+    .grid-3 {
+      grid-template-columns: 1fr !important;
+      gap: var(--spacing-3) !important;
       margin: var(--spacing-3) !important;
+    }
+    
+    .card, .tableWrap, .chartCard {
+      padding: var(--spacing-4) !important;
+      margin: var(--spacing-3) !important;
+    }
+    
+    /* Enhanced mobile table scrolling */
+    .responsive-table-container {
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      -webkit-overflow-scrolling: touch !important;
+      touch-action: pan-x !important;
+      scroll-behavior: smooth !important;
+      /* Show scrollbar on mobile for better UX */
+      scrollbar-width: thin !important;
+      /* Ensure container is scrollable */
+      max-width: 100vw !important;
+    }
+    
+    .responsive-table-container table {
+      min-width: 1000px !important;
+      width: 1000px !important;
+      font-size: 12px !important;
+      table-layout: fixed !important;
+      /* Force table to be much wider than mobile viewport */
+      display: table !important;
+    }
+    
+    .responsive-table-container th,
+    .responsive-table-container td {
+      padding: 8px 6px !important;
+      white-space: nowrap !important;
+      /* Remove text-overflow to show all content */
+    }
+    
+    /* Column width constraints for mobile - ensure all columns are visible */
+    .responsive-table-container th:nth-child(1),
+    .responsive-table-container td:nth-child(1) {
+      min-width: 50px !important;
+      width: 50px !important;
+    }
+    
+    .responsive-table-container th:nth-child(2),
+    .responsive-table-container td:nth-child(2),
+    .responsive-table-container th:nth-child(3),
+    .responsive-table-container td:nth-child(3) {
+      min-width: 85px !important;
+      width: 85px !important;
+    }
+    
+    .responsive-table-container th:nth-child(4),
+    .responsive-table-container td:nth-child(4) {
+      min-width: 60px !important;
+      width: 60px !important;
+    }
+    
+    .responsive-table-container th:nth-child(5),
+    .responsive-table-container td:nth-child(5),
+    .responsive-table-container th:nth-child(6),
+    .responsive-table-container td:nth-child(6) {
+      min-width: 75px !important;
+      width: 75px !important;
     }
     
     h1, h2, h3 {
@@ -349,10 +546,63 @@ const globalCSS = `
     .primaryButton, .secondaryButton {
       width: 100% !important;
       justify-content: center !important;
+      padding: var(--spacing-4) !important;
+      font-size: var(--font-size-base) !important;
+    }
+  }
+  
+  /* Medium screens (tablets) */
+  @media (max-width: 768px) {
+    .grid-3 {
+      grid-template-columns: 1fr !important;
+      gap: var(--spacing-4) !important;
+      margin: var(--spacing-4) !important;
     }
     
-    table {
-      font-size: var(--font-size-sm) !important;
+    .card, .tableWrap, .chartCard {
+      padding: var(--spacing-5) !important;
+      margin: var(--spacing-4) !important;
+    }
+    
+    .inputRow {
+      flex-direction: column !important;
+      align-items: stretch !important;
+    }
+    
+    .inputRow label {
+      min-width: auto !important;
+      margin-bottom: var(--spacing-2) !important;
+      text-align: left !important;
+    }
+    
+    .detailsGrid, .summaryGrid, .monitorGrid {
+      grid-template-columns: 1fr !important;
+      gap: var(--spacing-4) !important;
+      padding: 0 var(--spacing-4) var(--spacing-4) !important;
+    }
+    
+    .responsive-table-container {
+      /* Enhanced touch scrolling for tablets */
+      -webkit-overflow-scrolling: touch;
+      overflow-x: scroll;
+      scroll-behavior: smooth;
+    }
+    
+    .responsive-table-container table {
+      min-width: 900px !important;
+      font-size: 14px !important;
+      width: max-content !important;
+    }
+    
+    /* Two-column layouts become single column */
+    .confirm-batch-grid {
+      grid-template-columns: 1fr !important;
+      gap: var(--spacing-6) !important;
+    }
+    
+    .fermentation-main-grid {
+      grid-template-columns: 1fr !important;
+      gap: var(--spacing-4) !important;
     }
   }
   
@@ -420,9 +670,11 @@ const globalCSS = `
     grid-template-columns: 1.2fr 1fr; 
   }
   
-  @media (max-width: 980px) {
+  /* Large tablets and small desktops */
+  @media (max-width: 1024px) {
     .grid-3 { 
-      grid-template-columns: 1fr !important; 
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+      gap: var(--spacing-4) !important;
     }
     
     .grid-2 { 
@@ -440,6 +692,63 @@ const globalCSS = `
     .inputRow { 
       flex-direction: column; 
       align-items: flex-start; 
+    }
+    
+    .confirm-batch-grid {
+      grid-template-columns: 1fr !important;
+    }
+    
+    .fermentation-main-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+  
+  /* Desktop and larger screens - enhanced experience */
+  @media (min-width: 1025px) {
+    .card:hover, .tableWrap:hover, .chartCard:hover {
+      transform: translateY(-2px) scale(1.01);
+      box-shadow: var(--shadow-xl);
+    }
+    
+    .ux-pressable:hover {
+      transform: translateY(-1px) scale(1.02);
+    }
+    
+    .responsive-table-container {
+      overflow-x: auto;
+    }
+    
+    .responsive-table-container table {
+      min-width: 100% !important;
+      width: 100% !important;
+      table-layout: fixed !important;
+    }
+  }
+  
+  /* Intermediate desktop sizes - prevent table breaking */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    .responsive-table-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .responsive-table-container table {
+      min-width: 800px !important;
+      width: max-content !important;
+      table-layout: auto !important;
+    }
+  }
+  
+  /* Landscape mobile optimization */
+  @media (max-height: 500px) and (orientation: landscape) {
+    .card, .tableWrap, .chartCard {
+      padding: var(--spacing-3) !important;
+      margin: var(--spacing-2) !important;
+    }
+    
+    .grid-3 {
+      margin: var(--spacing-2) !important;
+      gap: var(--spacing-2) !important;
     }
   }
 `;
@@ -607,7 +916,7 @@ export const commonStyles = {
   tableContainer: {
     border: '3px solid #16a34a',
     borderRadius: 12,
-    overflow: 'hidden'
+    overflow: 'visible' // Allow horizontal scrolling
   },
 
   tableHeader: {
