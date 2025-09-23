@@ -103,6 +103,9 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		brix: true
 	});
 	
+	// Add state for controlling data points visibility
+	const [showDataPoints, setShowDataPoints] = useState(true);
+	
 	// Time tracking for live sessions
 	const [sessionStartTime, setSessionStartTime] = useState(null);
 	const [sessionEndTime, setSessionEndTime] = useState(null);
@@ -301,9 +304,9 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 									border: '1px solid #bbf7d0'
 								}}>
 									<span style={{ 
-										width: 8, 
-										height: 8, 
-										borderRadius: '50%', 
+										width: 8,
+										height: 8,
+										borderRadius: '50%',
 										background: '#10b981',
 										animation: 'pulse 2s infinite'
 									}} />
@@ -342,8 +345,35 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 					{/* Parameter Filter Buttons - Only show when live */}
 					{isLive && (
 						<div style={{ marginBottom: 20, padding: 16, background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}>
-							<div style={{ fontSize: 14, fontWeight: 700, color: '#0f766e', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-								<span>🎛️</span> Parameter Filters
+							<div style={{ fontSize: 14, fontWeight: 700, color: '#0f766e', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+									<span>🎛️</span> Parameter Filters
+								</div>
+								{/* Data Points Toggle Button */}
+								<button
+									onClick={() => setShowDataPoints(!showDataPoints)}
+									style={{
+										padding: '6px 12px',
+										borderRadius: 8,
+										border: showDataPoints ? 'none' : '2px solid #16a34a',
+										background: showDataPoints ? 'linear-gradient(135deg, #16a34a, #34d399)' : '#ffffff',
+										color: showDataPoints ? '#ffffff' : '#16a34a',
+										cursor: 'pointer',
+										fontSize: 11,
+										fontWeight: 700,
+										transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+										display: 'flex',
+										alignItems: 'center',
+										gap: 6,
+										boxShadow: showDataPoints 
+											? '0 4px 12px rgba(22, 163, 74, 0.3), 0 2px 6px rgba(52, 211, 153, 0.2)'
+											: '0 2px 8px rgba(0,0,0,0.08)',
+										transform: showDataPoints ? 'translateY(-1px)' : 'translateY(0)'
+									}}
+								>
+									<span style={{ fontSize: 12 }}>{showDataPoints ? '●' : '○'}</span>
+									{showDataPoints ? 'Hide Points' : 'Show Points'}
+								</button>
 							</div>
 							<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
 								{[
@@ -377,11 +407,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 											overflow: 'hidden'
 										}}
 									>
-										<div style={{
-											fontSize: 16,
-											fontWeight: 900,
-											opacity: visibleParameters[param.key] ? 1 : 0.7
-										}}>
+										<div style={{ fontSize: 16, fontWeight: 900, opacity: visibleParameters[param.key] ? 1 : 0.7 }}>
 											{param.icon}
 										</div>
 										<div style={{ textAlign: 'center', lineHeight: 1.2 }}>
@@ -437,7 +463,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 								}} />
 								<div style={{ textAlign: 'center', color: '#0f766e', zIndex: 1 }}>
 									<div style={{ fontSize: 64, marginBottom: 16, filter: 'drop-shadow(0 4px 8px rgba(15, 118, 110, 0.2))' }}>🧪</div>
-									<div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, color: '#0f766e' }}>IoT Monitoring Offline</div>
+									<div style={{ fontSize: 24, fontWeight: 800, color: '#0f766e', marginBottom: 8 }}>IoT Monitoring Offline</div>
 									<div style={{ fontSize: 16, color: '#475569', marginBottom: 16 }}>Activate live monitoring to view real-time fermentation data</div>
 									<div style={{ 
 										display: 'inline-flex', 
@@ -459,19 +485,61 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 									<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
 									<XAxis dataKey="time" stroke="#666" fontSize={12} />
 									<YAxis stroke="#666" fontSize={12} />
-									<Tooltip 
-										contentStyle={{ 
-											background: '#fff', 
-											border: '1px solid #e0e0e0', 
-											borderRadius: 8, 
-											boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
-										}} 
-									/>
+									{showDataPoints && (
+										<Tooltip 
+											contentStyle={{ 
+												background: '#fff', 
+												border: '1px solid #e0e0e0', 
+												borderRadius: 8, 
+												boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
+											}} 
+										/>
+									)}
 									<Legend />
-									{visibleParameters.brix && <Line type="monotone" dataKey="brix" stroke="#f59e0b" strokeWidth={3} dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }} name="◆ Brix (°Bx)" />}
-									{visibleParameters.pH && <Line type="monotone" dataKey="pH" stroke="#e11d48" strokeWidth={3} dot={{ fill: '#e11d48', strokeWidth: 2, r: 4 }} name="◉ pH Level" />}
-									{visibleParameters.alcohol && <Line type="monotone" dataKey="alcohol" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }} name="◈ Alcohol %" />}
-									{visibleParameters.temperature && <Line type="monotone" dataKey="temperature" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }} name="◐ Temperature °C" />}
+									{visibleParameters.brix && (
+										<Line
+											type="monotone"
+											dataKey="brix"
+											stroke="#f59e0b"
+											strokeWidth={3}
+											dot={showDataPoints ? { fill: '#f59e0b', strokeWidth: 2, r: 4 } : false}
+											activeDot={showDataPoints ? { r: 5 } : false}
+											name="◆ Brix (°Bx)"
+										/>
+									)}
+									{visibleParameters.pH && (
+										<Line
+											type="monotone"
+											dataKey="pH"
+											stroke="#e11d48"
+											strokeWidth={3}
+											dot={showDataPoints ? { fill: '#e11d48', strokeWidth: 2, r: 4 } : false}
+											activeDot={showDataPoints ? { r: 5 } : false}
+											name="◉ pH Level"
+										/>
+									)}
+									{visibleParameters.alcohol && (
+										<Line
+											type="monotone"
+											dataKey="alcohol"
+											stroke="#3b82f6"
+											strokeWidth={3}
+											dot={showDataPoints ? { fill: '#3b82f6', strokeWidth: 2, r: 4 } : false}
+											activeDot={showDataPoints ? { r: 5 } : false}
+											name="◈ Alcohol %"
+										/>
+									)}
+									{visibleParameters.temperature && (
+										<Line
+											type="monotone"
+											dataKey="temperature"
+											stroke="#10b981"
+											strokeWidth={3}
+											dot={showDataPoints ? { fill: '#10b981', strokeWidth: 2, r: 4 } : false}
+											activeDot={showDataPoints ? { r: 5 } : false}
+											name="◐ Temperature °C"
+										/>
+									)}
 								</LineChart>
 							</ResponsiveContainer>
 						)}
