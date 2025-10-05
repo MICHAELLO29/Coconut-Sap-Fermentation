@@ -34,7 +34,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 
 	// Load batches similar to Dashboard
 	const defaultBatches = useMemo(() => ([
-		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', brix: 16.0, alcohol: 25.0, temperature: '32.0 C', timeInterval: '56:04:01' },
+		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', brix: 16.0, SG_Gravity: 25.0, temperature: '32.0 C', timeInterval: '56:04:01' },
 		{ id: '002', startDate: '22/05/25', endDate: '25/05/25' },
 		{ id: '003', startDate: '25/05/25', endDate: '28/05/25' },
 		{ id: '004', startDate: '27/05/25', endDate: '30/05/25' },
@@ -97,8 +97,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	const [monitoringData, setMonitoringData] = useState([]);
 	const [isLive, setIsLive] = useState(false);
 	const [visibleParameters, setVisibleParameters] = useState({
-		pH: true,
-		alcohol: true,
+		SG_Gravity: true,
 		temperature: true,
 		brix: true
 	});
@@ -166,8 +165,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 				setMonitoringData(prev => prev.map(point => ({
 					...point,
 					brix: Math.max(8, Math.min(18, point.brix + (Math.random() - 0.5) * 0.1)),
-					pH: Math.max(3.0, Math.min(5.0, point.pH + (Math.random() - 0.5) * 0.1)),
-					alcohol: Math.max(0, Math.min(12, point.alcohol + (Math.random() - 0.5) * 0.2)),
+					SG_Gravity: Math.max(0, Math.min(12, point.SG_Gravity + (Math.random() - 0.5) * 0.2)),
 					temperature: Math.max(20, Math.min(35, point.temperature + (Math.random() - 0.5) * 0.5))
 				})));
 			}
@@ -378,8 +376,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 							<div className="inputRow" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
 								{[
 									{ key: 'brix', label: 'Brix', unit: '°Bx', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)', icon: '◆' },
-									{ key: 'pH', label: 'pH Level', unit: 'pH', color: '#e11d48', gradient: 'linear-gradient(135deg, #e11d48, #f87171)', icon: '◉' },
-									{ key: 'alcohol', label: 'Alcohol', unit: '%', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)', icon: '◈' },
+									{ key: 'SG_Gravity', label: 'SG_Gravity', unit: '%', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)', icon: '◈' },
 									{ key: 'temperature', label: 'Temperature', unit: '°C', color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #34d399)', icon: '◐' }
 								].map(param => (
 									<button
@@ -507,26 +504,15 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 											name="◆ Brix (°Bx)"
 										/>
 									)}
-									{visibleParameters.pH && (
+									{visibleParameters.SG_Gravity && (
 										<Line
 											type="monotone"
-											dataKey="pH"
-											stroke="#e11d48"
-											strokeWidth={3}
-											dot={showDataPoints ? { fill: '#e11d48', strokeWidth: 2, r: 4 } : false}
-											activeDot={showDataPoints ? { r: 5 } : false}
-											name="◉ pH Level"
-										/>
-									)}
-									{visibleParameters.alcohol && (
-										<Line
-											type="monotone"
-											dataKey="alcohol"
+											dataKey="SG_Gravity"
 											stroke="#3b82f6"
 											strokeWidth={3}
 											dot={showDataPoints ? { fill: '#3b82f6', strokeWidth: 2, r: 4 } : false}
 											activeDot={showDataPoints ? { r: 5 } : false}
-											name="◈ Alcohol %"
+											name="◈ SG_Gravity %"
 										/>
 									)}
 									{visibleParameters.temperature && (
@@ -590,8 +576,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 						{[
 							{ color: '#f59e0b', label: 'Brix (Sugar)', range: '12 - 18°Bx', key: 'brix' },
-							{ color: '#e11d48', label: 'pH Level', range: '3.5 - 4.5', key: 'pH' },
-							{ color: '#2563eb', label: 'Alcohol Content', range: '0 - 12%', key: 'alcohol' },
+							{ color: '#2563eb', label: 'Specific Gravity', range: '0 - 12%', key: 'SG_Gravity' },
 							{ color: '#16a34a', label: 'Temperature', range: '28 - 32°C', key: 'temperature' }
 						].map((param, i) => (
 							<div key={i} style={{ 
@@ -618,8 +603,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 							{[
 								{ label: 'Brix', value: `${monitoringData[monitoringData.length - 1]?.brix?.toFixed(1) || '—'}°Bx`, color: '#f59e0b' },
-								{ label: 'pH', value: monitoringData[monitoringData.length - 1]?.pH?.toFixed(2) || '—', color: '#e11d48' },
-								{ label: 'Alcohol', value: `${monitoringData[monitoringData.length - 1]?.alcohol?.toFixed(1) || '—'}%`, color: '#2563eb' },
+								{ label: 'SG_Gravity', value: `${monitoringData[monitoringData.length - 1]?.SG_Gravity?.toFixed(1) || '—'}%`, color: '#2563eb' },
 								{ label: 'Temperature', value: `${monitoringData[monitoringData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' }
 							].map((item, i) => (
 								<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8f9fa', borderRadius: 8 }}>

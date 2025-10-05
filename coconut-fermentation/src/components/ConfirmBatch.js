@@ -41,7 +41,6 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
     sg: '',
     brix: '',
     temperature: '',
-    ph: '',
     liter: '',
     battery: '',
     timestamp: ''
@@ -62,7 +61,6 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
               sg: data.gravity != null ? String(data.gravity) : "",
               brix: data.brix != null ? String(data.brix) : "",
               temperature: data.temperature != null ? String(data.temperature) : "",
-              ph: prev.ph, // No values yet (No sensor)
               battery: data.battery != null ? String(data.battery) : "",
               timestamp: data.timestamp
             }));
@@ -162,7 +160,6 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
       sg: '',
       brix: '',
       temperature: '',
-      ph: '',
       liter: ''
     });
 
@@ -235,7 +232,7 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
   const setOffset = (d) => setEndOffsetDays(d);
 
   // Completion meter and validation
-  const fieldOrder = ['angle','sg','brix','temperature','ph','liter'];
+  const fieldOrder = ['angle','sg','brix','temperature','liter'];
   const completedCount = fieldOrder.reduce((n, key) => n + (hasValue(formData[key]) ? 1 : 0), 0);
   const totalCount = fieldOrder.length;
   const literInvalid = formData.liter !== '' && !/^\d+(?:\.\d+)?$/.test(formData.liter);
@@ -299,7 +296,6 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
                 { label: 'Gravity (SG)', name: 'sg', readOnly: true },
                 { label: 'Brix (°Bx)', name: 'brix', readOnly: true },
                 { label: 'Temperature (°C)', name: 'temperature', readOnly: true },
-                { label: 'pH Level', name: 'ph', readOnly: true },
                 { label: 'Liter (L)', name: 'liter', readOnly: false }
               ].map((field, idx) => (
                 <div key={idx} className="inputRow" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
