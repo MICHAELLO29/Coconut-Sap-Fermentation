@@ -126,8 +126,7 @@ const Dashboard = ({ onToggleMenu }) => {
 
 	const timeEl = (
 		<div style={{ textAlign: 'right' }}>
-			<div style={{ fontSize: 16, color: '#9e9e9e', fontWeight: 500 }}>{now.toLocaleTimeString('en-US', { hour12: true })}</div>
-			<div style={{ fontSize: 14, color: '#9e9e9e' }}>{now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+			<div style={{ fontSize: 20, color: '#9e9e9e' }}>{now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
 		</div>
 	);
 
@@ -250,9 +249,6 @@ const Dashboard = ({ onToggleMenu }) => {
 		return rows;
 	};
 	
-	// old way (no longer used since we fetch from API)
-	//const litersChartData = useMemo(() => aggregateBy(lambanogData, 'liters', litersRange), [lambanogData, litersRange]);
-	//console.log('Liters chart data:', litersChartData);
 
 	const [litersChartData, setLitersChartData] = useState([]);
 	useEffect(() => {
@@ -377,7 +373,6 @@ const Dashboard = ({ onToggleMenu }) => {
 											...commonStyles.tableHeader,
 											whiteSpace: 'nowrap',
 											padding: '12px 16px',
-											// Fixed widths that add up to 1000px
 											width: h === 'Batch ID' ? '100px' : 
 												   h === 'Start Date' ? '150px' :
 												   h === 'End Date' ? '150px' :
