@@ -21,11 +21,6 @@ const formatDMY = (date) => {
 	return `${dd}/${mm}/${yy}`;
 };
 
-const addDays = (dateStr, days) => {
-	const dt = parseDMY(dateStr);
-	dt.setDate(dt.getDate() + days);
-	return formatDMY(dt);
-};
 
 const computeStatuses = (list) => {
 	return list.map((b) => {
@@ -49,7 +44,6 @@ const Dashboard = ({ onToggleMenu }) => {
 	// Trigger re-computation from API/localStorage periodically and on storage events
 	const [refreshTick, setRefreshTick] = useState(0);
 	const [apiBatches, setApiBatches] = useState(null);
-	const [chartData, setChartData] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [chartLoading, setChartLoading] = useState(true);
 	const [hoveredPoint, setHoveredPoint] = useState(null);
@@ -472,8 +466,8 @@ const Dashboard = ({ onToggleMenu }) => {
 								padding: 20
 							}}>
 								<img 
-								src="/Analytics.png" 
-								alt="AnalyticsIcon"
+								src="/Analyt.png" 
+								alt="No Data Icon"
 								style={{ 
 									width: 64, 
 									height: 64, 
