@@ -459,7 +459,16 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 									pointerEvents: 'none'
 								}} />
 								<div style={{ textAlign: 'center', color: '#0f766e', zIndex: 1 }}>
-									<div style={{ fontSize: 64, marginBottom: 16, filter: 'drop-shadow(0 4px 8px rgba(15, 118, 110, 0.2))' }}>🧪</div>
+									<img 
+									src="/Monitoring.png"  
+									alt="Monitoring Icon"
+									style={{ 
+										width: 120,            // adjust size as needed
+										height: 120, 
+										marginBottom: 16,
+										filter: 'drop-shadow(0 4px 8px rgba(15, 118, 110, 0.2))'
+									}}
+									/>
 									<div style={{ fontSize: 24, fontWeight: 800, color: '#0f766e', marginBottom: 8 }}>IoT Monitoring Offline</div>
 									<div style={{ fontSize: 16, color: '#475569', marginBottom: 16 }}>Activate live monitoring to view real-time fermentation data</div>
 									<div style={{ 
@@ -471,7 +480,18 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 										borderRadius: 8,
 										border: '1px solid rgba(15, 118, 110, 0.2)'
 									}}>
-										<span style={{ fontSize: 12 }}>💡</span>
+										<img 
+										src="Cursor.png" 
+										alt="Cursor Icon"
+										style={{ 
+											width: 18,            // adjust size as needed
+											height: 24, 
+											marginRight: 6,
+											verticalAlign: 'middle',
+											filter: 'drop-shadow(0 4px 8px rgba(15, 118, 110, 0.2))'
+										}}
+										/>
+										<span style={{ fontSize: 12 }}></span>
 										<span style={{ fontSize: 14, fontWeight: 600, color: '#0f766e' }}>Click "Start Live" above</span>
 									</div>
 								</div>
