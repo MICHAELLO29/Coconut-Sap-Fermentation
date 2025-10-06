@@ -340,12 +340,9 @@ const Dashboard = ({ onToggleMenu }) => {
 						touchAction: 'pan-x',
 						scrollBehavior: 'smooth',
 						position: 'relative',
-						// Ensure scrollbar is visible
 						scrollbarWidth: 'auto',
-						// Constrain container to force scrolling
 						maxWidth: '100%',
 						width: '100%',
-						// Ensure container is smaller than table
 						height: 'auto'
 					}}
 				>
@@ -357,12 +354,11 @@ const Dashboard = ({ onToggleMenu }) => {
 					) : (
 					<table style={{ 
 							// Force table to be wider than mobile screens to enable scrolling
-							width: '1000px', // Fixed width larger than mobile screens
+							width: '1000px', 
 							minWidth: '1000px',
 							borderCollapse: 'collapse', 
-							tableLayout: 'fixed', // Fixed layout for consistent scrolling
+							tableLayout: 'fixed', 
 							fontSize: 14,
-							// Add border styling since we removed tableContainer
 							border: '3px solid #16a34a',
 							borderRadius: 12
 						}}>
@@ -475,7 +471,17 @@ const Dashboard = ({ onToggleMenu }) => {
 								justifyContent: 'center',
 								padding: 20
 							}}>
-								<div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+								<img 
+								src="/Analytics.png" 
+								alt="AnalyticsIcon"
+								style={{ 
+									width: 64, 
+									height: 64, 
+									marginBottom: 16,
+									objectFit: "contain",
+									filter: 'drop-shadow(0 4px 8px rgba(100, 116, 139, 0.2))'
+								}}
+								/>
 								<div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, color: '#64748b' }}>No Production Data</div>
 								<div style={{ fontSize: 14, color: '#94a3b8' }}>Save your first fermentation record to see production trends</div>
 							</div>
