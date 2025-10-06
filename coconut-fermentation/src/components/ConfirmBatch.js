@@ -160,7 +160,8 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
       sg: '',
       brix: '',
       temperature: '',
-      liter: ''
+      liter: '',
+      battery: '',
     });
 
     localStorage.removeItem('confirmBatchDraft');
@@ -292,6 +293,7 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
 
             <div className="cb-stagger inputRow" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
               {[
+                { label: 'Battery', name: 'battery', readOnly: true },
                 { label: 'Angle', name: 'angle', readOnly: true },
                 { label: 'Gravity (SG)', name: 'sg', readOnly: true },
                 { label: 'Brix (°Bx)', name: 'brix', readOnly: true },
