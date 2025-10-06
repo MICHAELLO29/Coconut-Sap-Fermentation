@@ -15,7 +15,6 @@ const SideMenu = ({ isOpen, onClose, onNavigate, currentPage, isMobile }) => {
 			display: 'flex',
 			flexDirection: 'column',
 			overflowY: 'auto',
-			// Prevent menu from interfering with main content
 			pointerEvents: isOpen ? 'auto' : 'none'
 		},
 		header: {
@@ -54,7 +53,6 @@ const SideMenu = ({ isOpen, onClose, onNavigate, currentPage, isMobile }) => {
 
 	const menuItems = [
 		{ key: 'dashboard', label: 'Dashboard' },
-		{ key: 'save-record', label: 'Save New Record' },
 		{ key: 'record-summary', label: 'Record Summary' },
 		{ key: 'fermentation-monitoring', label: 'Fermentation Monitoring' },
 		{ key: 'confirm-batch', label: 'Confirm Batch' }

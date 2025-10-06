@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
-import SaveNewRecord from './components/SaveNewRecord';
 import RecordSummary from './components/RecordSummary';
 import FermentationMonitoring from './components/FermentationMonitoring';
 import ConfirmBatch from './components/ConfirmBatch';
@@ -8,7 +7,6 @@ import SideMenu from './components/SideMenu';
 
 function App() {
 	const [currentPage, setCurrentPage] = useState('dashboard');
-	// Ensure menu always starts closed
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
@@ -16,8 +14,6 @@ function App() {
 		const handleResize = () => {
 			const newIsMobile = window.innerWidth <= 768;
 			setIsMobile(newIsMobile);
-			// REMOVED: No automatic menu closing/opening on resize
-			// Sidebar should ONLY be controlled by user clicks
 		};
 
 		// Debounce resize events
@@ -32,7 +28,7 @@ function App() {
 			window.removeEventListener('resize', debouncedResize);
 			clearTimeout(resizeTimeout);
 		};
-	}, []); // Empty dependency array - no state dependencies
+	},); // Empty dependency array - no state dependencies
 
 	const [autoStartLive, setAutoStartLive] = useState(false);
 
@@ -45,12 +41,12 @@ function App() {
 	};
 
 	const handleToggleMenu = () => {
-		console.log('Menu toggle clicked:', !menuOpen); // Debug log
+		console.log('Menu toggle clicked:', !menuOpen); 
 		setMenuOpen(!menuOpen);
 	};
 	
 	const handleCloseMenu = () => {
-		console.log('Menu close triggered'); // Debug log
+		console.log('Menu close triggered'); 
 		setMenuOpen(false);
 	};
 
@@ -58,8 +54,6 @@ function App() {
 		switch (currentPage) {
 			case 'dashboard':
 				return <Dashboard onToggleMenu={handleToggleMenu} />;
-			case 'save-record':
-				return <SaveNewRecord onToggleMenu={handleToggleMenu} />;
 			case 'record-summary':
 				return <RecordSummary onToggleMenu={handleToggleMenu} />;
 			case 'fermentation-monitoring':
@@ -115,7 +109,6 @@ function App() {
 				display: 'flex',
 				flexDirection: 'column',
 				minWidth: 0,
-				// Simplified: Always use overlay approach to prevent layout shifts
 				width: '100%',
 				height: '100vh',
 				overflow: 'hidden',
