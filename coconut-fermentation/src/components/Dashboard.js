@@ -466,7 +466,7 @@ const Dashboard = ({ onToggleMenu }) => {
 								padding: 20
 							}}>
 								<img 
-								src="/Analyt.png" 
+								src="/Analytics.png" 
 								alt="No Data Icon"
 								style={{ 
 									width: 64, 
