@@ -384,32 +384,60 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 									<span>🎛️</span> Parameter Filters
 								</div>
-								{/* Data Points Toggle Button */}
-								<button
-									onClick={() => setShowDataPoints(!showDataPoints)}
-									style={{
-										padding: '6px 12px',
-										borderRadius: 8,
-										border: showDataPoints ? 'none' : '2px solid #16a34a',
-										background: showDataPoints ? 'linear-gradient(135deg, #16a34a, #34d399)' : '#ffffff',
-										color: showDataPoints ? '#ffffff' : '#16a34a',
-										cursor: 'pointer',
-										fontSize: 11,
-										fontWeight: 700,
-										transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
-										display: 'flex',
-										alignItems: 'center',
-										gap: 6,
-										boxShadow: showDataPoints 
-											? '0 4px 12px rgba(22, 163, 74, 0.3), 0 2px 6px rgba(52, 211, 153, 0.2)'
-											: '0 2px 8px rgba(0,0,0,0.08)',
-										transform: showDataPoints ? 'translateY(-1px)' : 'translateY(0)'
-									}}
-								>
-									<span style={{ fontSize: 12 }}>{showDataPoints ? '●' : '○'}</span>
-									{showDataPoints ? 'Hide Points' : 'Show Points'}
-								</button>
+								{/* Toggle Buttons Container */}
+								<div style={{ display: 'flex', gap: 8 }}>
+									{/* Smooth Mode Toggle Button */}
+									<button
+										onClick={() => setSmoothMode(!smoothMode)}
+										style={{
+											padding: '6px 12px',
+											borderRadius: 8,
+											border: smoothMode ? 'none' : '2px solid #8b5cf6',
+											background: smoothMode ? 'linear-gradient(135deg, #8b5cf6, #a78bfa)' : '#ffffff',
+											color: smoothMode ? '#ffffff' : '#8b5cf6',
+											cursor: 'pointer',
+											fontSize: 11,
+											fontWeight: 700,
+											transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+											display: 'flex',
+											alignItems: 'center',
+											gap: 6,
+											boxShadow: smoothMode
+												? '0 4px 12px rgba(139, 92, 246, 0.3), 0 2px 6px rgba(167, 139, 250, 0.2)'
+												: '0 2px 8px rgba(0,0,0,0.08)',
+											transform: smoothMode ? 'translateY(-1px)' : 'translateY(0)'
+										}}
+									>
+										<span style={{ fontSize: 12 }}>{smoothMode ? '🌊' : '📊'}</span>
+										{smoothMode ? 'Smooth ON' : 'Smooth OFF'}
+									</button>
+									{/* Data Points Toggle Button */}
+									<button
+										onClick={() => setShowDataPoints(!showDataPoints)}
+										style={{
+											padding: '6px 12px',
+											borderRadius: 8,
+											border: showDataPoints ? 'none' : '2px solid #16a34a',
+											background: showDataPoints ? 'linear-gradient(135deg, #16a34a, #34d399)' : '#ffffff',
+											color: showDataPoints ? '#ffffff' : '#16a34a',
+											cursor: 'pointer',
+											fontSize: 11,
+											fontWeight: 700,
+											transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+											display: 'flex',
+											alignItems: 'center',
+											gap: 6,
+											boxShadow: showDataPoints 
+												? '0 4px 12px rgba(22, 163, 74, 0.3), 0 2px 6px rgba(52, 211, 153, 0.2)'
+												: '0 2px 8px rgba(0,0,0,0.08)',
+											transform: showDataPoints ? 'translateY(-1px)' : 'translateY(0)'
+										}}
+									>
+										<span style={{ fontSize: 12 }}>{showDataPoints ? '●' : '○'}</span>
+										{showDataPoints ? 'Hide Points' : 'Show Points'}
+									</button>
 							</div>
+						</div>
 							{smoothMode && (
 								<div style={{ 
 									marginBottom: 12, 
@@ -631,7 +659,6 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 					</div>
 				</div>
 				
-				{/* Side Panel */}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					{/* Session History */}
 					{sessionHistory.length > 0 && (
@@ -697,13 +724,16 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 					
 					{/* Current Values */}
 					<div className="ux-card" style={{ background: '#fff', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-						<div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 12 }}>Current Values</div>
-						{monitoringData.length > 0 ? (
+						<div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+						Current Values
+						{smoothMode && <span style={{ fontSize: 10, background: 'linear-gradient(135deg, #8b5cf6, #a78bfa)', color: '#fff', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>SMOOTHED</span>}
+					</div>
+						{displayData.length > 0 ? (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 							{[
-								{ label: 'Brix', value: `${monitoringData[monitoringData.length - 1]?.brix?.toFixed(1) || '—'}°Bx`, color: '#f59e0b' },
-								{ label: 'gravity', value: `${monitoringData[monitoringData.length - 1]?.gravity?.toFixed(1) || '—'}`, color: '#2563eb' },
-								{ label: 'Temperature', value: `${monitoringData[monitoringData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' }
+								{ label: 'Brix', value: `${displayData[displayData.length - 1]?.brix?.toFixed(1) || '—'}°Bx`, color: '#f59e0b' },
+								{ label: 'gravity', value: `${displayData[displayData.length - 1]?.gravity?.toFixed(1) || '—'}`, color: '#2563eb' },
+								{ label: 'Temperature', value: `${displayData[displayData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' }
 							].map((item, i) => (
 								<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8f9fa', borderRadius: 8 }}>
 									<span style={{ color: '#666', fontWeight: 600 }}>{item.label}</span>
@@ -754,7 +784,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 							}}>{analysisText}</div>
 						</div>
 					</div>
-				</div>
+				</div> 
 			</div>
 		</div>
 	);
