@@ -3,6 +3,31 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import Header from './Header';
 import { commonStyles, useGlobalStyles } from './styles/GlobalStyles';
 
+// Smoothing Algorithm: Moving Average
+const applyMovingAverage = (data, windowSize = 5) => {
+	if (!data || data.length < windowSize) return data;
+	
+	const smoothed = [];
+	for (let i = 0; i < data.length; i++) {
+		const start = Math.max(0, i - Math.floor(windowSize / 2));
+		const end = Math.min(data.length, i + Math.ceil(windowSize / 2));
+		const window = data.slice(start, end);
+		
+		const avgBrix = window.reduce((sum, p) => sum + (p.brix || 0), 0) / window.length;
+		const avgGravity = window.reduce((sum, p) => sum + (p.gravity || 0), 0) / window.length;
+		const avgTemp = window.reduce((sum, p) => sum + (p.temperature || 0), 0) / window.length;
+		
+		smoothed.push({
+			...data[i],
+			brix: avgBrix,
+			gravity: avgGravity,
+			temperature: avgTemp
+		});
+	}
+	
+	return smoothed;
+};
+
 // Helpers
 const parseDMY = (d) => {
 	if (!d) return new Date(0);
@@ -105,6 +130,10 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	// Add state for controlling data points visibility
 	const [showDataPoints, setShowDataPoints] = useState(true);
 	
+	// Add state for smooth mode toggle
+	const [smoothMode, setSmoothMode] = useState(false);
+	const [smoothingWindow, setSmoothingWindow] = useState(5); // Default window size
+	
 	// Time tracking for live sessions
 	const [sessionStartTime, setSessionStartTime] = useState(null);
 	const [sessionEndTime, setSessionEndTime] = useState(null);
@@ -149,6 +178,14 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		
 		generateData();
 	}, [selectedId, isLive]);
+	
+	// Apply smoothing to monitoring data when smooth mode is enabled
+	const displayData = useMemo(() => {
+		if (!smoothMode || monitoringData.length === 0) {
+			return monitoringData;
+		}
+		return applyMovingAverage(monitoringData, smoothingWindow);
+	}, [monitoringData, smoothMode, smoothingWindow]);
 	
 	// Live updates
 	useEffect(() => {
@@ -373,7 +410,49 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 									{showDataPoints ? 'Hide Points' : 'Show Points'}
 								</button>
 							</div>
-							<div className="inputRow" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
+							{smoothMode && (
+								<div style={{ 
+									marginBottom: 12, 
+									padding: '12px 16px', 
+									background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(167, 139, 250, 0.05))', 
+									borderRadius: 8,
+									border: '1px solid rgba(139, 92, 246, 0.2)'
+								}}>
+									<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+										<label style={{ fontSize: 12, fontWeight: 700, color: '#8b5cf6' }}>Smoothing Strength:</label>
+										<span style={{ fontSize: 12, fontWeight: 800, color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.1)', padding: '2px 8px', borderRadius: 4 }}>
+											{smoothingWindow === 3 ? 'Light' : smoothingWindow === 5 ? 'Medium' : smoothingWindow === 7 ? 'Strong' : 'Very Strong'}
+										</span>
+									</div>
+									<input
+										type="range"
+										min="3"
+										max="9"
+										step="2"
+										value={smoothingWindow}
+										onChange={(e) => setSmoothingWindow(Number(e.target.value))}
+										style={{
+											width: '100%',
+											height: 6,
+											borderRadius: 3,
+											outline: 'none',
+											cursor: 'pointer',
+											appearance: 'none',
+											background: 'linear-gradient(90deg, #8b5cf6, #a78bfa)',
+											WebkitAppearance: 'none'
+										}}
+									/>
+									<div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+										<span style={{ fontSize: 9, color: '#8b5cf6', opacity: 0.7 }}>Less</span>
+										<span style={{ fontSize: 9, color: '#8b5cf6', opacity: 0.7 }}>More</span>
+									</div>
+								</div>
+							)}
+							<div style={{ fontSize: 10, color: '#666', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+								<span style={{ fontSize: 12 }}>💡</span>
+								<span>{smoothMode ? 'Smoothing reduces noise and highlights trends' : 'Toggle smooth mode for cleaner graph visualization'}</span>
+							</div>
+						<div className="inputRow" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
 								{[
 									{ key: 'brix', label: 'Brix', unit: '°Bx', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)', icon: '◆' },
 									{ key: 'gravity', label: 'gravity', unit: 'SG', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)', icon: '◈' },
