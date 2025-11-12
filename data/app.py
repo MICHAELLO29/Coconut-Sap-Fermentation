@@ -2,9 +2,30 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
 from datetime import datetime
+import tensorflow as tf
+import numpy as np
+import pandas as pd
+import joblib
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})  # Allow React app
+CORS(app, resources={r"/*": {"origins": "*"}})  # Allow React app
+
+model_path = "model/model_output/tuba_model_best_BiLSTM.h5"
+feature_scaler_path = "model/model_output/feature_scalers.joblib"
+brix_scaler_path = "model/model_output/brix_scaler.joblib"
+threshold_path = "model/optimal_threshold.txt"
+
+model = tf.keras.models.load_model(model_path, compile=False)
+feature_scaler = joblib.load(feature_scaler_path)
+brix_scaler = joblib.load(brix_scaler_path)
+
+if isinstance(brix_scaler, dict):
+    brix_scaler = brix_scaler.get("scaler", brix_scaler)
+if isinstance(feature_scaler, dict):
+    feature_scaler = feature_scaler.get("scaler", feature_scaler)
+
+with open(threshold_path, 'r') as f:
+    threshold = float(f.read().strip())
 
 def get_db_connection():
     conn = sqlite3.connect("ispindel.db")
@@ -30,6 +51,13 @@ def get_next_batch_id():
 
 # iSpindel logging
 latest_reading = None  # keep in memory preview of latest reading
+
+# Fetch latest 50 readings for input of BiLSTM model
+def get_latest_data():
+    conn = sqlite3.connect("ispindel.db")
+    df = pd.read_sql_query("SELECT gravity, brix, temperature, timestamp FROM readings ORDER BY timestamp DESC LIMIT 30;", conn)
+    conn.close()
+    return df
 
 @app.route("/ispindel", methods=["POST"])
 def ispindel():
@@ -284,7 +312,49 @@ def get_liter_chart():
     conn.close()
 
    
-    return jsonify([{"month": row["month"], "total_liters": row["total_liters"]} for row in rows])
+    return jsonify([{"month": row["month"], "total_liters": row["total_liters"]} for row in rows]) 
+
+@app.route("/predict", methods=["GET"])
+def predict():
+    df = get_latest_data()
+
+    if df.empty:
+        return jsonify({"error": "Data not found"}), 400
+
+    # Use the same features and order as the model was trained on
+    feature_cols = ["gravity", "brix", "temperature"]
+
+    # Ensure we have at least 30 samples (timesteps)
+    if len(df) < 30:
+        return jsonify({"error": "Not enough data for prediction (need 30 timesteps)"}), 400
+
+    # Select the last 30 records
+    df = df.tail(30)
+
+    # Extract features
+    features = df[feature_cols].values
+
+    # Scale features individually
+    scaled_features = np.zeros_like(features, dtype=float)
+    for i, col in enumerate(feature_cols):
+        scaler = feature_scaler[col]
+        scaled_features[:, i] = scaler.transform(features[:, i].reshape(-1, 1)).ravel()
+
+    # Reshape to (1, timesteps, features)
+    scaled_features = np.expand_dims(scaled_features, axis=0)  # (1, 30, 3)
+
+    # Predict brix forecast
+    pred_scaled = model.predict(scaled_features)
+    pred_brix = brix_scaler.inverse_transform(pred_scaled)
+
+    # Apply threshold (if classification logic)
+    state = "Fermenting" if pred_brix[0][0] > threshold else "Stable"
+
+    return jsonify({
+        "predicted_brix": float(pred_brix[0][0]),
+        "state": state
+    })
+
 # Start server
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)

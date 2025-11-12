@@ -3,6 +3,31 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import Header from './Header';
 import { commonStyles, useGlobalStyles } from './styles/GlobalStyles';
 
+// Smoothing Algorithm: Moving Average
+const applyMovingAverage = (data, windowSize = 5) => {
+	if (!data || data.length < windowSize) return data;
+	
+	const smoothed = [];
+	for (let i = 0; i < data.length; i++) {
+		const start = Math.max(0, i - Math.floor(windowSize / 2));
+		const end = Math.min(data.length, i + Math.ceil(windowSize / 2));
+		const window = data.slice(start, end);
+		
+		const avgBrix = window.reduce((sum, p) => sum + (p.brix || 0), 0) / window.length;
+		const avgGravity = window.reduce((sum, p) => sum + (p.gravity || 0), 0) / window.length;
+		const avgTemp = window.reduce((sum, p) => sum + (p.temperature || 0), 0) / window.length;
+		
+		smoothed.push({
+			...data[i],
+			brix: avgBrix,
+			gravity: avgGravity,
+			temperature: avgTemp
+		});
+	}
+	
+	return smoothed;
+};
+
 // Helpers
 const parseDMY = (d) => {
 	if (!d) return new Date(0);
@@ -105,6 +130,10 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	// Add state for controlling data points visibility
 	const [showDataPoints, setShowDataPoints] = useState(true);
 	
+	// Add state for smooth mode toggle
+	const [smoothMode, setSmoothMode] = useState(false);
+	const [smoothingWindow, setSmoothingWindow] = useState(5); // Default window size
+	
 	// Time tracking for live sessions
 	const [sessionStartTime, setSessionStartTime] = useState(null);
 	const [sessionEndTime, setSessionEndTime] = useState(null);
@@ -149,6 +178,14 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		
 		generateData();
 	}, [selectedId, isLive]);
+	
+	// Apply smoothing to monitoring data when smooth mode is enabled
+	const displayData = useMemo(() => {
+		if (!smoothMode || monitoringData.length === 0) {
+			return monitoringData;
+		}
+		return applyMovingAverage(monitoringData, smoothingWindow);
+	}, [monitoringData, smoothMode, smoothingWindow]);
 	
 	// Live updates
 	useEffect(() => {
@@ -347,33 +384,103 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 									<span>🎛️</span> Parameter Filters
 								</div>
-								{/* Data Points Toggle Button */}
-								<button
-									onClick={() => setShowDataPoints(!showDataPoints)}
-									style={{
-										padding: '6px 12px',
-										borderRadius: 8,
-										border: showDataPoints ? 'none' : '2px solid #16a34a',
-										background: showDataPoints ? 'linear-gradient(135deg, #16a34a, #34d399)' : '#ffffff',
-										color: showDataPoints ? '#ffffff' : '#16a34a',
-										cursor: 'pointer',
-										fontSize: 11,
-										fontWeight: 700,
-										transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
-										display: 'flex',
-										alignItems: 'center',
-										gap: 6,
-										boxShadow: showDataPoints 
-											? '0 4px 12px rgba(22, 163, 74, 0.3), 0 2px 6px rgba(52, 211, 153, 0.2)'
-											: '0 2px 8px rgba(0,0,0,0.08)',
-										transform: showDataPoints ? 'translateY(-1px)' : 'translateY(0)'
-									}}
-								>
-									<span style={{ fontSize: 12 }}>{showDataPoints ? '●' : '○'}</span>
-									{showDataPoints ? 'Hide Points' : 'Show Points'}
-								</button>
+								{/* Toggle Buttons Container */}
+								<div style={{ display: 'flex', gap: 8 }}>
+									{/* Smooth Mode Toggle Button */}
+									<button
+										onClick={() => setSmoothMode(!smoothMode)}
+										style={{
+											padding: '6px 12px',
+											borderRadius: 8,
+											border: smoothMode ? 'none' : '2px solid #8b5cf6',
+											background: smoothMode ? 'linear-gradient(135deg, #8b5cf6, #a78bfa)' : '#ffffff',
+											color: smoothMode ? '#ffffff' : '#8b5cf6',
+											cursor: 'pointer',
+											fontSize: 11,
+											fontWeight: 700,
+											transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+											display: 'flex',
+											alignItems: 'center',
+											gap: 6,
+											boxShadow: smoothMode
+												? '0 4px 12px rgba(139, 92, 246, 0.3), 0 2px 6px rgba(167, 139, 250, 0.2)'
+												: '0 2px 8px rgba(0,0,0,0.08)',
+											transform: smoothMode ? 'translateY(-1px)' : 'translateY(0)'
+										}}
+									>
+										<span style={{ fontSize: 12 }}>{smoothMode ? '🌊' : '📊'}</span>
+										{smoothMode ? 'Smooth ON' : 'Smooth OFF'}
+									</button>
+									{/* Data Points Toggle Button */}
+									<button
+										onClick={() => setShowDataPoints(!showDataPoints)}
+										style={{
+											padding: '6px 12px',
+											borderRadius: 8,
+											border: showDataPoints ? 'none' : '2px solid #16a34a',
+											background: showDataPoints ? 'linear-gradient(135deg, #16a34a, #34d399)' : '#ffffff',
+											color: showDataPoints ? '#ffffff' : '#16a34a',
+											cursor: 'pointer',
+											fontSize: 11,
+											fontWeight: 700,
+											transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+											display: 'flex',
+											alignItems: 'center',
+											gap: 6,
+											boxShadow: showDataPoints 
+												? '0 4px 12px rgba(22, 163, 74, 0.3), 0 2px 6px rgba(52, 211, 153, 0.2)'
+												: '0 2px 8px rgba(0,0,0,0.08)',
+											transform: showDataPoints ? 'translateY(-1px)' : 'translateY(0)'
+										}}
+									>
+										<span style={{ fontSize: 12 }}>{showDataPoints ? '●' : '○'}</span>
+										{showDataPoints ? 'Hide Points' : 'Show Points'}
+									</button>
 							</div>
-							<div className="inputRow" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
+						</div>
+							{smoothMode && (
+								<div style={{ 
+									marginBottom: 12, 
+									padding: '12px 16px', 
+									background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(167, 139, 250, 0.05))', 
+									borderRadius: 8,
+									border: '1px solid rgba(139, 92, 246, 0.2)'
+								}}>
+									<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+										<label style={{ fontSize: 12, fontWeight: 700, color: '#8b5cf6' }}>Smoothing Strength:</label>
+										<span style={{ fontSize: 12, fontWeight: 800, color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.1)', padding: '2px 8px', borderRadius: 4 }}>
+											{smoothingWindow === 3 ? 'Light' : smoothingWindow === 5 ? 'Medium' : smoothingWindow === 7 ? 'Strong' : 'Very Strong'}
+										</span>
+									</div>
+									<input
+										type="range"
+										min="3"
+										max="9"
+										step="2"
+										value={smoothingWindow}
+										onChange={(e) => setSmoothingWindow(Number(e.target.value))}
+										style={{
+											width: '100%',
+											height: 6,
+											borderRadius: 3,
+											outline: 'none',
+											cursor: 'pointer',
+											appearance: 'none',
+											background: 'linear-gradient(90deg, #8b5cf6, #a78bfa)',
+											WebkitAppearance: 'none'
+										}}
+									/>
+									<div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+										<span style={{ fontSize: 9, color: '#8b5cf6', opacity: 0.7 }}>Less</span>
+										<span style={{ fontSize: 9, color: '#8b5cf6', opacity: 0.7 }}>More</span>
+									</div>
+								</div>
+							)}
+							<div style={{ fontSize: 10, color: '#666', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+								<span style={{ fontSize: 12 }}>💡</span>
+								<span>{smoothMode ? 'Smoothing reduces noise and highlights trends' : 'Toggle smooth mode for cleaner graph visualization'}</span>
+							</div>
+						<div className="inputRow" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
 								{[
 									{ key: 'brix', label: 'Brix', unit: '°Bx', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)', icon: '◆' },
 									{ key: 'gravity', label: 'gravity', unit: 'SG', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)', icon: '◈' },
@@ -552,7 +659,6 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 					</div>
 				</div>
 				
-				{/* Side Panel */}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					{/* Session History */}
 					{sessionHistory.length > 0 && (
@@ -618,13 +724,16 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 					
 					{/* Current Values */}
 					<div className="ux-card" style={{ background: '#fff', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-						<div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 12 }}>Current Values</div>
-						{monitoringData.length > 0 ? (
+						<div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+						Current Values
+						{smoothMode && <span style={{ fontSize: 10, background: 'linear-gradient(135deg, #8b5cf6, #a78bfa)', color: '#fff', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>SMOOTHED</span>}
+					</div>
+						{displayData.length > 0 ? (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 							{[
-								{ label: 'Brix', value: `${monitoringData[monitoringData.length - 1]?.brix?.toFixed(1) || '—'}°Bx`, color: '#f59e0b' },
-								{ label: 'gravity', value: `${monitoringData[monitoringData.length - 1]?.gravity?.toFixed(1) || '—'}`, color: '#2563eb' },
-								{ label: 'Temperature', value: `${monitoringData[monitoringData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' }
+								{ label: 'Brix', value: `${displayData[displayData.length - 1]?.brix?.toFixed(1) || '—'}°Bx`, color: '#f59e0b' },
+								{ label: 'gravity', value: `${displayData[displayData.length - 1]?.gravity?.toFixed(1) || '—'}`, color: '#2563eb' },
+								{ label: 'Temperature', value: `${displayData[displayData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' }
 							].map((item, i) => (
 								<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8f9fa', borderRadius: 8 }}>
 									<span style={{ color: '#666', fontWeight: 600 }}>{item.label}</span>
@@ -675,7 +784,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 							}}>{analysisText}</div>
 						</div>
 					</div>
-				</div>
+				</div> 
 			</div>
 		</div>
 	);
