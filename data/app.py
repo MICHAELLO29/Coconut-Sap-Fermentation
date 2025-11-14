@@ -284,7 +284,51 @@ def get_liter_chart():
     conn.close()
 
    
-    return jsonify([{"month": row["month"], "total_liters": row["total_liters"]} for row in rows])
+    return jsonify([{"month": row["month"], "total_liters": row["total_liters"]} for row in rows]) 
+
+
+# bound for changes, refer to readme.md for more details
+@app.route("/predict", methods=["GET"])
+def predict():
+    df = get_latest_data()
+
+    if df.empty:
+        return jsonify({"error": "Data not found"}), 400
+
+    # Use the same features and order as the model was trained on
+    feature_cols = ["gravity", "brix", "temperature"]
+
+    # Ensure we have at least 30 samples (timesteps)
+    if len(df) < 30:
+        return jsonify({"error": "Not enough data for prediction (need 30 timesteps)"}), 400
+
+    # Select the last 30 records
+    df = df.tail(30)
+
+    # Extract features
+    features = df[feature_cols].values
+
+    # Scale features individually
+    scaled_features = np.zeros_like(features, dtype=float)
+    for i, col in enumerate(feature_cols):
+        scaler = feature_scaler[col]
+        scaled_features[:, i] = scaler.transform(features[:, i].reshape(-1, 1)).ravel()
+
+    # Reshape to (1, timesteps, features)
+    scaled_features = np.expand_dims(scaled_features, axis=0)  # (1, 30, 3)
+
+    # Predict brix forecast
+    pred_scaled = model.predict(scaled_features)
+    pred_brix = brix_scaler.inverse_transform(pred_scaled)
+
+    # Apply threshold (if classification logic)
+    state = "Fermenting" if pred_brix[0][0] > threshold else "Stable"
+
+    return jsonify({
+        "predicted_brix": float(pred_brix[0][0]),
+        "state": state
+    })
+
 # Start server
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
