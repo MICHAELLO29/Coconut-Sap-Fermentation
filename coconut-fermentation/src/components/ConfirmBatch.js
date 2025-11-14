@@ -47,12 +47,15 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
     timestamp: ''
   });
 
+  // Server IP address (Flask backend)
+const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${process.env.REACT_APP_API_PORT || "5000"}`;
+
   // Current batch ID
   const [batchId, setBatchId] = useState(null);
   // Fetch preview readings every 3 seconds
   useEffect(() => {
     const interval = setInterval(() => {
-      fetch("http://127.0.0.1:5000/preview_reading")
+      fetch(`${API_BASE}/preview_reading`)
         .then(res => res.json())
         .then(data => {
           if (data.angle) {
@@ -76,7 +79,7 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
 
   // Fetch next batch ID when page loads
   useEffect(() => {
-    fetch("http://localhost:5000/next_batch_id")
+    fetch(`${API_BASE}/next_batch_id`)
       .then(res => res.json())
       .then(data => setBatchId(data.next_batch_id))
       .catch(err => console.error("Batch ID fetch error:", err));
@@ -108,7 +111,7 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
   const [activeBatch, setActiveBatch] = useState(null);
 
   useEffect(() => {
-    fetch("http://localhost:5000/active_batch")
+    fetch(`http://${API_BASE}/active_batch`)
       .then(res => res.json())
       .then(data => {
         if (data.active) {
@@ -121,7 +124,7 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
   // Confirm & Start monitoring the batch
   const handleConfirm = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:5000/create_batch", {
+      const res = await fetch(`http://${API_BASE}/create_batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -176,7 +179,7 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
 
     try {
       // Checks if batchId is active
-      const checkRes = await fetch(`http://localhost:5000/check_active/${activeBatch_formatted}`);
+      const checkRes = await fetch(`${API_BASE}/check_active/${activeBatch_formatted}`);
       const checkData = await checkRes.json();
       console.log(`batch id: ${activeBatch_formatted}`, checkData);
 
@@ -187,7 +190,7 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
       }
 
       // Stops the batch if active
-      const stopRes = await fetch(`http://localhost:5000/stop_batch/${activeBatch_formatted}`, {
+      const stopRes = await fetch(`${API_BASE}/stop_batch/${activeBatch_formatted}`, {
         method: "POST"
       });
       const stopData = await stopRes.json();

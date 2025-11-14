@@ -3,7 +3,7 @@ import Header from './Header';
 import { commonStyles, useGlobalStyles } from './styles/GlobalStyles';
 
 // Backend API base URL: override via REACT_APP_API_BASE, defaults to Flask on :5000
-const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
+const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${process.env.REACT_APP_API_PORT || "5000"}`;
 
 // Helpers
 const parseDMY = (d) => {

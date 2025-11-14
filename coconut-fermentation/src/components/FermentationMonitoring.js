@@ -3,6 +3,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import Header from './Header';
 import { commonStyles, useGlobalStyles } from './styles/GlobalStyles';
 
+const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${process.env.REACT_APP_API_PORT || "5000"}`;
+
 // Helpers
 const parseDMY = (d) => {
 	if (!d) return new Date(0);
@@ -63,7 +65,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	useEffect(() => {
 	const fetchActiveBatches = async () => {
 		try {
-		const res = await fetch("http://localhost:5000/active_batches_list");
+		const res = await fetch(`${API_BASE}/active_batches_list`);
 		if (res.ok) {
 			const data = await res.json();
 			setBatchesRaw(data);
@@ -115,8 +117,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	// API function to fetch real IoT data
 	const fetchIoTData = async () => {
 		try {
-			const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:5000';
-			const response = await fetch(`${apiBase}/readings/${selectedId}`);
+			const response = await fetch(`${API_BASE}/readings/${selectedId}`);
 			if (response.ok) {
 				const data = await response.json();
 				return data;
