@@ -3,7 +3,34 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import Header from './Header';
 import { commonStyles, useGlobalStyles } from './styles/GlobalStyles';
 
+<<<<<<< HEAD
 const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${process.env.REACT_APP_API_PORT || "5000"}`;
+=======
+// Smoothing Algorithm: Moving Average
+const applyMovingAverage = (data, windowSize = 5) => {
+	if (!data || data.length < windowSize) return data;
+	
+	const smoothed = [];
+	for (let i = 0; i < data.length; i++) {
+		const start = Math.max(0, i - Math.floor(windowSize / 2));
+		const end = Math.min(data.length, i + Math.ceil(windowSize / 2));
+		const window = data.slice(start, end);
+		
+		const avgBrix = window.reduce((sum, p) => sum + (p.brix || 0), 0) / window.length;
+		const avgGravity = window.reduce((sum, p) => sum + (p.gravity || 0), 0) / window.length;
+		const avgTemp = window.reduce((sum, p) => sum + (p.temperature || 0), 0) / window.length;
+		
+		smoothed.push({
+			...data[i],
+			brix: avgBrix,
+			gravity: avgGravity,
+			temperature: avgTemp
+		});
+	}
+	
+	return smoothed;
+};
+>>>>>>> 856f966c08bca5b8f91d456f7a6e7141f59406b3
 
 // Helpers
 const parseDMY = (d) => {
@@ -36,7 +63,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 
 	// Load batches similar to Dashboard
 	const defaultBatches = useMemo(() => ([
-		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', brix: 16.0, alcohol: 25.0, temperature: '32.0 C', timeInterval: '56:04:01' },
+		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', brix: 16.0, gravity: 25.0, temperature: '32.0 C', timeInterval: '56:04:01' },
 		{ id: '002', startDate: '22/05/25', endDate: '25/05/25' },
 		{ id: '003', startDate: '25/05/25', endDate: '28/05/25' },
 		{ id: '004', startDate: '27/05/25', endDate: '30/05/25' },
@@ -99,14 +126,17 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	const [monitoringData, setMonitoringData] = useState([]);
 	const [isLive, setIsLive] = useState(false);
 	const [visibleParameters, setVisibleParameters] = useState({
-		pH: true,
-		alcohol: true,
+		gravity: true,
 		temperature: true,
 		brix: true
 	});
 	
 	// Add state for controlling data points visibility
 	const [showDataPoints, setShowDataPoints] = useState(true);
+	
+	// Add state for smooth mode toggle
+	const [smoothMode, setSmoothMode] = useState(false);
+	const [smoothingWindow, setSmoothingWindow] = useState(5); // Default window size
 	
 	// Time tracking for live sessions
 	const [sessionStartTime, setSessionStartTime] = useState(null);
@@ -152,6 +182,14 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		generateData();
 	}, [selectedId, isLive]);
 	
+	// Apply smoothing to monitoring data when smooth mode is enabled
+	const displayData = useMemo(() => {
+		if (!smoothMode || monitoringData.length === 0) {
+			return monitoringData;
+		}
+		return applyMovingAverage(monitoringData, smoothingWindow);
+	}, [monitoringData, smoothMode, smoothingWindow]);
+	
 	// Live updates
 	useEffect(() => {
 		if (!isLive || monitoringData.length === 0) return;
@@ -167,8 +205,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 				setMonitoringData(prev => prev.map(point => ({
 					...point,
 					brix: Math.max(8, Math.min(18, point.brix + (Math.random() - 0.5) * 0.1)),
-					pH: Math.max(3.0, Math.min(5.0, point.pH + (Math.random() - 0.5) * 0.1)),
-					alcohol: Math.max(0, Math.min(12, point.alcohol + (Math.random() - 0.5) * 0.2)),
+					gravity: Math.max(0, Math.min(12, point.gravity + (Math.random() - 0.5) * 0.2)),
 					temperature: Math.max(20, Math.min(35, point.temperature + (Math.random() - 0.5) * 0.5))
 				})));
 			}
@@ -246,7 +283,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		<div className="fermentation-monitoring-page" style={commonStyles.pageContainer}>
 			<Header title="Fermentation Monitoring" onToggleMenu={onToggleMenu} />
 			
-			<div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, padding: '0 24px 24px' }}>
+			<div className="fermentation-main-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, padding: '0 24px 24px' }}>
 				{/* Main Chart Area */}
 				<div className="ux-card" style={{ background: '#fff', padding: 24, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
 					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
@@ -350,37 +387,106 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 								<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 									<span>🎛️</span> Parameter Filters
 								</div>
-								{/* Data Points Toggle Button */}
-								<button
-									onClick={() => setShowDataPoints(!showDataPoints)}
-									style={{
-										padding: '6px 12px',
-										borderRadius: 8,
-										border: showDataPoints ? 'none' : '2px solid #16a34a',
-										background: showDataPoints ? 'linear-gradient(135deg, #16a34a, #34d399)' : '#ffffff',
-										color: showDataPoints ? '#ffffff' : '#16a34a',
-										cursor: 'pointer',
-										fontSize: 11,
-										fontWeight: 700,
-										transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
-										display: 'flex',
-										alignItems: 'center',
-										gap: 6,
-										boxShadow: showDataPoints 
-											? '0 4px 12px rgba(22, 163, 74, 0.3), 0 2px 6px rgba(52, 211, 153, 0.2)'
-											: '0 2px 8px rgba(0,0,0,0.08)',
-										transform: showDataPoints ? 'translateY(-1px)' : 'translateY(0)'
-									}}
-								>
-									<span style={{ fontSize: 12 }}>{showDataPoints ? '●' : '○'}</span>
-									{showDataPoints ? 'Hide Points' : 'Show Points'}
-								</button>
+								{/* Toggle Buttons Container */}
+								<div style={{ display: 'flex', gap: 8 }}>
+									{/* Smooth Mode Toggle Button */}
+									<button
+										onClick={() => setSmoothMode(!smoothMode)}
+										style={{
+											padding: '6px 12px',
+											borderRadius: 8,
+											border: smoothMode ? 'none' : '2px solid #8b5cf6',
+											background: smoothMode ? 'linear-gradient(135deg, #8b5cf6, #a78bfa)' : '#ffffff',
+											color: smoothMode ? '#ffffff' : '#8b5cf6',
+											cursor: 'pointer',
+											fontSize: 11,
+											fontWeight: 700,
+											transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+											display: 'flex',
+											alignItems: 'center',
+											gap: 6,
+											boxShadow: smoothMode
+												? '0 4px 12px rgba(139, 92, 246, 0.3), 0 2px 6px rgba(167, 139, 250, 0.2)'
+												: '0 2px 8px rgba(0,0,0,0.08)',
+											transform: smoothMode ? 'translateY(-1px)' : 'translateY(0)'
+										}}
+									>
+										<span style={{ fontSize: 12 }}>{smoothMode ? '🌊' : '📊'}</span>
+										{smoothMode ? 'Smooth ON' : 'Smooth OFF'}
+									</button>
+									{/* Data Points Toggle Button */}
+									<button
+										onClick={() => setShowDataPoints(!showDataPoints)}
+										style={{
+											padding: '6px 12px',
+											borderRadius: 8,
+											border: showDataPoints ? 'none' : '2px solid #16a34a',
+											background: showDataPoints ? 'linear-gradient(135deg, #16a34a, #34d399)' : '#ffffff',
+											color: showDataPoints ? '#ffffff' : '#16a34a',
+											cursor: 'pointer',
+											fontSize: 11,
+											fontWeight: 700,
+											transition: 'all 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+											display: 'flex',
+											alignItems: 'center',
+											gap: 6,
+											boxShadow: showDataPoints 
+												? '0 4px 12px rgba(22, 163, 74, 0.3), 0 2px 6px rgba(52, 211, 153, 0.2)'
+												: '0 2px 8px rgba(0,0,0,0.08)',
+											transform: showDataPoints ? 'translateY(-1px)' : 'translateY(0)'
+										}}
+									>
+										<span style={{ fontSize: 12 }}>{showDataPoints ? '●' : '○'}</span>
+										{showDataPoints ? 'Hide Points' : 'Show Points'}
+									</button>
 							</div>
-							<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+						</div>
+							{smoothMode && (
+								<div style={{ 
+									marginBottom: 12, 
+									padding: '12px 16px', 
+									background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(167, 139, 250, 0.05))', 
+									borderRadius: 8,
+									border: '1px solid rgba(139, 92, 246, 0.2)'
+								}}>
+									<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+										<label style={{ fontSize: 12, fontWeight: 700, color: '#8b5cf6' }}>Smoothing Strength:</label>
+										<span style={{ fontSize: 12, fontWeight: 800, color: '#8b5cf6', background: 'rgba(139, 92, 246, 0.1)', padding: '2px 8px', borderRadius: 4 }}>
+											{smoothingWindow === 3 ? 'Light' : smoothingWindow === 5 ? 'Medium' : smoothingWindow === 7 ? 'Strong' : 'Very Strong'}
+										</span>
+									</div>
+									<input
+										type="range"
+										min="3"
+										max="9"
+										step="2"
+										value={smoothingWindow}
+										onChange={(e) => setSmoothingWindow(Number(e.target.value))}
+										style={{
+											width: '100%',
+											height: 6,
+											borderRadius: 3,
+											outline: 'none',
+											cursor: 'pointer',
+											appearance: 'none',
+											background: 'linear-gradient(90deg, #8b5cf6, #a78bfa)',
+											WebkitAppearance: 'none'
+										}}
+									/>
+									<div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+										<span style={{ fontSize: 9, color: '#8b5cf6', opacity: 0.7 }}>Less</span>
+										<span style={{ fontSize: 9, color: '#8b5cf6', opacity: 0.7 }}>More</span>
+									</div>
+								</div>
+							)}
+							<div style={{ fontSize: 10, color: '#666', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+								<span style={{ fontSize: 12 }}>💡</span>
+								<span>{smoothMode ? 'Smoothing reduces noise and highlights trends' : 'Toggle smooth mode for cleaner graph visualization'}</span>
+							</div>
+						<div className="inputRow" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12 }}>
 								{[
 									{ key: 'brix', label: 'Brix', unit: '°Bx', color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)', icon: '◆' },
-									{ key: 'pH', label: 'pH Level', unit: 'pH', color: '#e11d48', gradient: 'linear-gradient(135deg, #e11d48, #f87171)', icon: '◉' },
-									{ key: 'alcohol', label: 'Alcohol', unit: '%', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)', icon: '◈' },
+									{ key: 'gravity', label: 'gravity', unit: 'SG', color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)', icon: '◈' },
 									{ key: 'temperature', label: 'Temperature', unit: '°C', color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #34d399)', icon: '◐' }
 								].map(param => (
 									<button
@@ -463,7 +569,16 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 									pointerEvents: 'none'
 								}} />
 								<div style={{ textAlign: 'center', color: '#0f766e', zIndex: 1 }}>
-									<div style={{ fontSize: 64, marginBottom: 16, filter: 'drop-shadow(0 4px 8px rgba(15, 118, 110, 0.2))' }}>🧪</div>
+									<img 
+									src="/Monitoring.png"  
+									alt="Monitoring Icon"
+									style={{ 
+										width: 120,            // adjust size as needed
+										height: 120, 
+										marginBottom: 16,
+										filter: 'drop-shadow(0 4px 8px rgba(15, 118, 110, 0.2))'
+									}}
+									/>
 									<div style={{ fontSize: 24, fontWeight: 800, color: '#0f766e', marginBottom: 8 }}>IoT Monitoring Offline</div>
 									<div style={{ fontSize: 16, color: '#475569', marginBottom: 16 }}>Activate live monitoring to view real-time fermentation data</div>
 									<div style={{ 
@@ -475,7 +590,18 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 										borderRadius: 8,
 										border: '1px solid rgba(15, 118, 110, 0.2)'
 									}}>
-										<span style={{ fontSize: 12 }}>💡</span>
+										<img 
+										src="Cursor.png" 
+										alt="Cursor Icon"
+										style={{ 
+											width: 18,            // adjust size as needed
+											height: 24, 
+											marginRight: 6,
+											verticalAlign: 'middle',
+											filter: 'drop-shadow(0 4px 8px rgba(15, 118, 110, 0.2))'
+										}}
+										/>
+										<span style={{ fontSize: 12 }}></span>
 										<span style={{ fontSize: 14, fontWeight: 600, color: '#0f766e' }}>Click "Start Live" above</span>
 									</div>
 								</div>
@@ -508,26 +634,15 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 											name="◆ Brix (°Bx)"
 										/>
 									)}
-									{visibleParameters.pH && (
+									{visibleParameters.gravity && (
 										<Line
 											type="monotone"
-											dataKey="pH"
-											stroke="#e11d48"
-											strokeWidth={3}
-											dot={showDataPoints ? { fill: '#e11d48', strokeWidth: 2, r: 4 } : false}
-											activeDot={showDataPoints ? { r: 5 } : false}
-											name="◉ pH Level"
-										/>
-									)}
-									{visibleParameters.alcohol && (
-										<Line
-											type="monotone"
-											dataKey="alcohol"
+											dataKey="gravity"
 											stroke="#3b82f6"
 											strokeWidth={3}
 											dot={showDataPoints ? { fill: '#3b82f6', strokeWidth: 2, r: 4 } : false}
 											activeDot={showDataPoints ? { r: 5 } : false}
-											name="◈ Alcohol %"
+											name="◈ gravity (SG)"
 										/>
 									)}
 									{visibleParameters.temperature && (
@@ -547,7 +662,6 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 					</div>
 				</div>
 				
-				{/* Side Panel */}
 				<div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 					{/* Session History */}
 					{sessionHistory.length > 0 && (
@@ -591,8 +705,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 						{[
 							{ color: '#f59e0b', label: 'Brix (Sugar)', range: '12 - 18°Bx', key: 'brix' },
-							{ color: '#e11d48', label: 'pH Level', range: '3.5 - 4.5', key: 'pH' },
-							{ color: '#2563eb', label: 'Alcohol Content', range: '0 - 12%', key: 'alcohol' },
+							{ color: '#2563eb', label: 'Specific Gravity', range: '0 - 12%', key: 'gravity' },
 							{ color: '#16a34a', label: 'Temperature', range: '28 - 32°C', key: 'temperature' }
 						].map((param, i) => (
 							<div key={i} style={{ 
@@ -614,14 +727,16 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 					
 					{/* Current Values */}
 					<div className="ux-card" style={{ background: '#fff', padding: 18, borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-						<div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 12 }}>Current Values</div>
-						{monitoringData.length > 0 ? (
+						<div style={{ fontSize: 18, fontWeight: 800, color: '#111', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+						Current Values
+						{smoothMode && <span style={{ fontSize: 10, background: 'linear-gradient(135deg, #8b5cf6, #a78bfa)', color: '#fff', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>SMOOTHED</span>}
+					</div>
+						{displayData.length > 0 ? (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 							{[
-								{ label: 'Brix', value: `${monitoringData[monitoringData.length - 1]?.brix?.toFixed(1) || '—'}°Bx`, color: '#f59e0b' },
-								{ label: 'pH', value: monitoringData[monitoringData.length - 1]?.pH?.toFixed(2) || '—', color: '#e11d48' },
-								{ label: 'Alcohol', value: `${monitoringData[monitoringData.length - 1]?.alcohol?.toFixed(1) || '—'}%`, color: '#2563eb' },
-								{ label: 'Temperature', value: `${monitoringData[monitoringData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' }
+								{ label: 'Brix', value: `${displayData[displayData.length - 1]?.brix?.toFixed(1) || '—'}°Bx`, color: '#f59e0b' },
+								{ label: 'gravity', value: `${displayData[displayData.length - 1]?.gravity?.toFixed(1) || '—'}`, color: '#2563eb' },
+								{ label: 'Temperature', value: `${displayData[displayData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' }
 							].map((item, i) => (
 								<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8f9fa', borderRadius: 8 }}>
 									<span style={{ color: '#666', fontWeight: 600 }}>{item.label}</span>
@@ -672,7 +787,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 							}}>{analysisText}</div>
 						</div>
 					</div>
-				</div>
+				</div> 
 			</div>
 		</div>
 	);

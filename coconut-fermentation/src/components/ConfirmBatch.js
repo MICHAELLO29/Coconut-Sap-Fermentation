@@ -41,7 +41,6 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
     sg: '',
     brix: '',
     temperature: '',
-    ph: '',
     liter: '',
     battery: '',
     timestamp: ''
@@ -65,7 +64,6 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
               sg: data.gravity != null ? String(data.gravity) : "",
               brix: data.brix != null ? String(data.brix) : "",
               temperature: data.temperature != null ? String(data.temperature) : "",
-              ph: prev.ph, // No values yet (No sensor)
               battery: data.battery != null ? String(data.battery) : "",
               timestamp: data.timestamp
             }));
@@ -165,8 +163,8 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
       sg: '',
       brix: '',
       temperature: '',
-      ph: '',
-      liter: ''
+      liter: '',
+      battery: '',
     });
 
     localStorage.removeItem('confirmBatchDraft');
@@ -238,7 +236,7 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
   const setOffset = (d) => setEndOffsetDays(d);
 
   // Completion meter and validation
-  const fieldOrder = ['angle','sg','brix','temperature','ph','liter'];
+  const fieldOrder = ['angle','sg','brix','temperature','liter'];
   const completedCount = fieldOrder.reduce((n, key) => n + (hasValue(formData[key]) ? 1 : 0), 0);
   const totalCount = fieldOrder.length;
   const literInvalid = formData.liter !== '' && !/^\d+(?:\.\d+)?$/.test(formData.liter);
@@ -279,14 +277,14 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
         </div>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 32 }}>
-          {/* Left: Inputs */}
-          <div className="cb-card" style={{ background: '#ffffff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.06)', padding: 18, border: '1px solid #e5e7eb' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div style={{ fontSize: 18, fontWeight: 900, color: '#111' }}>Confirm Parameters</div>
-              <div style={{ color: '#111', fontWeight: 800 }}>Batch ID: <span style={{ color: '#16a34a' }}>{batchId !== null ? batchId : "Loading..."}</span></div>
-            </div>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: 20 }}>
+      <div className="confirm-batch-grid" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 32 }}>
+        {/* Left: Inputs */}
+        <div className="cb-card" style={{ background: '#ffffff', borderRadius: 12, boxShadow: '0 2px 10px rgba(0,0,0,0.06)', padding: 18, border: '1px solid #e5e7eb' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: '#111' }}>Confirm Parameters</div>
+            <div style={{ color: '#111', fontWeight: 800 }}>Batch ID: <span style={{ color: '#16a34a' }}>{batchId !== null ? batchId : "Loading..."}</span></div>
+          </div>
 
             {/* Completion meter */}
             <div aria-live="polite" style={{ display:'flex', alignItems:'center', gap:10, margin:'10px 0 12px' }}>
@@ -296,32 +294,32 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
               <div style={{ fontSize:12, fontWeight:800, color:'#166534' }}>{completedCount}/{totalCount}</div>
             </div>
 
-            <div className="cb-stagger" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
+            <div className="cb-stagger inputRow" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
               {[
+                { label: 'Battery', name: 'battery', readOnly: true },
                 { label: 'Angle', name: 'angle', readOnly: true },
                 { label: 'Gravity (SG)', name: 'sg', readOnly: true },
                 { label: 'Brix (°Bx)', name: 'brix', readOnly: true },
                 { label: 'Temperature (°C)', name: 'temperature', readOnly: true },
-                { label: 'pH Level', name: 'ph', readOnly: true },
                 { label: 'Liter (L)', name: 'liter', readOnly: false }
               ].map((field, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div key={idx} className="inputRow" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   {/* Label text on the left */}
                   <label
                     htmlFor={field.name}
                     style={{
-                      minWidth: 120,          // adjust width to your liking
+                      minWidth: 120,
                       textAlign: 'right',
                       fontWeight: 700,
                       fontSize: 14,
-                      color: '#374151'        // a neutral gray
+                      color: '#374151'
                   }}
                 >
                   {field.label}:
                 </label>
                   {/* Input with checkmark */}
                   {loading && field.readOnly ? (
-                    <div className="cb-skeleton" style={{ flex:1, height:48, borderRadius:10 }} />
+                    <div className="cb-skeleton" style={{ flex:1, height:48, borderRadius:10, minWidth: '200px' }} />
                   ) : (
                     <input
                       name={field.name}
@@ -329,14 +327,15 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
                       onChange={handleInputChange}
                       readOnly={field.readOnly}
                       ref={!hasValue(formData[field.name]) && !field.readOnly ? firstEmptyRef : undefined}
-                      className="cb-focus"
+                      className="cb-focus inputField"
                       style={{
                         flex: 1,
                         padding: '16px 14px',
                         borderRadius: 10,
                         border: '1px solid #e5e7eb',
                         background: '#f9fafb',
-                        fontSize: 14
+                        fontSize: 14,
+                        minWidth: '200px'
                       }}
                     />
                   )}
@@ -354,7 +353,8 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
                       justifyContent: 'center',
                       fontWeight: 900,
                       transition: 'transform 150ms ease',
-                      transform: hasValue(formData[field.name]) ? 'scale(1)' : 'scale(.9)'
+                      transform: hasValue(formData[field.name]) ? 'scale(1)' : 'scale(.9)',
+                      flexShrink: 0
                     }}
                   >
                     {hasValue(formData[field.name]) ? '✓' : ''}
@@ -409,20 +409,20 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
         </div>
 
         {/* Bottom: centered CTA */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24, flexWrap: 'wrap', gap: 16 }}>
           {activeBatch ? (
-            <div style={{minWidth: 260, background: '#db2222ff', color: "#ffffff", fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, boxShadow: '0 6px 16px rgba(219,34,34,0.25)' }}>
-              Batch is {activeBatch} is currently active
+            <div className="primaryButton" style={{minWidth: 260, background: '#db2222ff', color: "#ffffff", fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, boxShadow: '0 6px 16px rgba(219,34,34,0.25)', textAlign: 'center' }}>
+              Batch {activeBatch} is currently active
               </div>
           ) : (
-          <button onClick={handleConfirm} style={{ minWidth: 260, background: '#16a34a', color: '#ffffff', fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, cursor: 'pointer', boxShadow: '0 6px 16px rgba(22,163,74,0.25)' }}>
+          <button onClick={handleConfirm} className="primaryButton" style={{ minWidth: 260, background: '#16a34a', color: '#ffffff', fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, cursor: 'pointer', boxShadow: '0 6px 16px rgba(22,163,74,0.25)' }}>
             Confirm & Start
           </button>
           )}
-          <button onClick={resetConfirm} style={{ minWidth: 260, marginLeft: 16, background: '#a5a5a5ff', color: '#000000', fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, cursor: 'pointer', boxShadow: '0 6px 16px rgba(22,163,74,0.25)'}}>
+          <button onClick={resetConfirm} className="secondaryButton" style={{ minWidth: 260, background: '#a5a5a5ff', color: '#000000', fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, cursor: 'pointer', boxShadow: '0 6px 16px rgba(22,163,74,0.25)'}}>
             Reset Values
           </button>
-          {activeBatch && (<button onClick={stopBatch} style={{ minWidth:260, marginLeft: 16, background: '#ff4040ff', color: '#ffffff', fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, cursor: 'pointer', boxShadow: '0 6px 16px rgba(255,64,64,0.25)' }}>
+          {activeBatch && (<button onClick={stopBatch} className="primaryButton" style={{ minWidth:260, background: '#ff4040ff', color: '#ffffff', fontWeight: 900, border: 'none', padding: '14px 28px', borderRadius: 12, cursor: 'pointer', boxShadow: '0 6px 16px rgba(255,64,64,0.25)' }}>
             Stop Active Batch
           </button>)}
         </div>

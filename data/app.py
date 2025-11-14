@@ -2,9 +2,30 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
 from datetime import datetime
+import tensorflow as tf
+import numpy as np
+import pandas as pd
+import joblib
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})  # Allow React app
+CORS(app, resources={r"/*": {"origins": "*"}})  # Allow React app
+
+model_path = "model/model_output/tuba_model_best_BiLSTM.h5"
+feature_scaler_path = "model/model_output/feature_scalers.joblib"
+brix_scaler_path = "model/model_output/brix_scaler.joblib"
+threshold_path = "model/optimal_threshold.txt"
+
+model = tf.keras.models.load_model(model_path, compile=False)
+feature_scaler = joblib.load(feature_scaler_path)
+brix_scaler = joblib.load(brix_scaler_path)
+
+if isinstance(brix_scaler, dict):
+    brix_scaler = brix_scaler.get("scaler", brix_scaler)
+if isinstance(feature_scaler, dict):
+    feature_scaler = feature_scaler.get("scaler", feature_scaler)
+
+with open(threshold_path, 'r') as f:
+    threshold = float(f.read().strip())
 
 def get_db_connection():
     conn = sqlite3.connect("ispindel.db")
@@ -30,6 +51,13 @@ def get_next_batch_id():
 
 # iSpindel logging
 latest_reading = None  # keep in memory preview of latest reading
+
+# Fetch latest 50 readings for input of BiLSTM model
+def get_latest_data():
+    conn = sqlite3.connect("ispindel.db")
+    df = pd.read_sql_query("SELECT gravity, brix, temperature, timestamp FROM readings ORDER BY timestamp DESC LIMIT 30;", conn)
+    conn.close()
+    return df
 
 @app.route("/ispindel", methods=["POST"])
 def ispindel():
@@ -286,8 +314,11 @@ def get_liter_chart():
    
     return jsonify([{"month": row["month"], "total_liters": row["total_liters"]} for row in rows]) 
 
+<<<<<<< HEAD
 
 # bound for changes, refer to readme.md for more details
+=======
+>>>>>>> 856f966c08bca5b8f91d456f7a6e7141f59406b3
 @app.route("/predict", methods=["GET"])
 def predict():
     df = get_latest_data()

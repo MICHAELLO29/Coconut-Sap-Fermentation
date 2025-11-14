@@ -10,11 +10,12 @@ const SideMenu = ({ isOpen, onClose, onNavigate, currentPage, isMobile }) => {
 			width: isMobile ? 'min(280px, 75vw)' : '300px',
 			background: '#fff',
 			boxShadow: isMobile ? '2px 0 8px rgba(0,0,0,0.15)' : '0 0 18px rgba(0,0,0,0.2)',
-			transition: 'left 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+			transition: 'left 200ms cubic-bezier(0.4, 0, 0.2, 1), width 200ms ease',
 			zIndex: 1000,
 			display: 'flex',
 			flexDirection: 'column',
-			overflowY: 'auto'
+			overflowY: 'auto',
+			pointerEvents: isOpen ? 'auto' : 'none'
 		},
 		header: {
 			padding: '20px 20px 10px',
@@ -52,7 +53,6 @@ const SideMenu = ({ isOpen, onClose, onNavigate, currentPage, isMobile }) => {
 
 	const menuItems = [
 		{ key: 'dashboard', label: 'Dashboard' },
-		{ key: 'save-record', label: 'Save New Record' },
 		{ key: 'record-summary', label: 'Record Summary' },
 		{ key: 'fermentation-monitoring', label: 'Fermentation Monitoring' },
 		{ key: 'confirm-batch', label: 'Confirm Batch' }

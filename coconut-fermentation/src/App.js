@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
-import SaveNewRecord from './components/SaveNewRecord';
 import RecordSummary from './components/RecordSummary';
 import FermentationMonitoring from './components/FermentationMonitoring';
 import ConfirmBatch from './components/ConfirmBatch';
@@ -15,15 +14,21 @@ function App() {
 		const handleResize = () => {
 			const newIsMobile = window.innerWidth <= 768;
 			setIsMobile(newIsMobile);
-			// Auto-close menu when switching to desktop
-			if (!newIsMobile && menuOpen) {
-				setMenuOpen(false);
-			}
 		};
 
-		window.addEventListener('resize', handleResize);
-		return () => window.removeEventListener('resize', handleResize);
-	}, []);
+		// Debounce resize events
+		let resizeTimeout;
+		const debouncedResize = () => {
+			clearTimeout(resizeTimeout);
+			resizeTimeout = setTimeout(handleResize, 200);
+		};
+
+		window.addEventListener('resize', debouncedResize);
+		return () => {
+			window.removeEventListener('resize', debouncedResize);
+			clearTimeout(resizeTimeout);
+		};
+	},); // Empty dependency array - no state dependencies
 
 	const [autoStartLive, setAutoStartLive] = useState(false);
 
@@ -36,10 +41,12 @@ function App() {
 	};
 
 	const handleToggleMenu = () => {
+		console.log('Menu toggle clicked:', !menuOpen); 
 		setMenuOpen(!menuOpen);
 	};
-
+	
 	const handleCloseMenu = () => {
+		console.log('Menu close triggered'); 
 		setMenuOpen(false);
 	};
 
@@ -47,8 +54,6 @@ function App() {
 		switch (currentPage) {
 			case 'dashboard':
 				return <Dashboard onToggleMenu={handleToggleMenu} />;
-			case 'save-record':
-				return <SaveNewRecord onToggleMenu={handleToggleMenu} />;
 			case 'record-summary':
 				return <RecordSummary onToggleMenu={handleToggleMenu} />;
 			case 'fermentation-monitoring':
@@ -89,6 +94,7 @@ function App() {
 				/>
 			)}
 			
+			{/* Only render SideMenu when needed */}
 			<SideMenu
 				isOpen={menuOpen}
 				onClose={handleCloseMenu}
@@ -103,10 +109,10 @@ function App() {
 				display: 'flex',
 				flexDirection: 'column',
 				minWidth: 0,
-				transition: 'transform 200ms ease',
-				transform: isMobile ? 'translateX(0)' : (menuOpen ? 'translateX(300px)' : 'translateX(0)'),
 				width: '100%',
-				overflow: 'hidden'
+				height: '100vh',
+				overflow: 'hidden',
+				position: 'relative'
 			}}>
 				{renderCurrentPage()}
 			</div>

@@ -21,11 +21,6 @@ const formatDMY = (date) => {
 	return `${dd}/${mm}/${yy}`;
 };
 
-const addDays = (dateStr, days) => {
-	const dt = parseDMY(dateStr);
-	dt.setDate(dt.getDate() + days);
-	return formatDMY(dt);
-};
 
 const computeStatuses = (list) => {
 	return list.map((b) => {
@@ -49,7 +44,6 @@ const Dashboard = ({ onToggleMenu }) => {
 	// Trigger re-computation from API/localStorage periodically and on storage events
 	const [refreshTick, setRefreshTick] = useState(0);
 	const [apiBatches, setApiBatches] = useState(null);
-	const [chartData, setChartData] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [chartLoading, setChartLoading] = useState(true);
 	const [hoveredPoint, setHoveredPoint] = useState(null);
@@ -126,8 +120,7 @@ const Dashboard = ({ onToggleMenu }) => {
 
 	const timeEl = (
 		<div style={{ textAlign: 'right' }}>
-			<div style={{ fontSize: 16, color: '#9e9e9e', fontWeight: 500 }}>{now.toLocaleTimeString('en-US', { hour12: true })}</div>
-			<div style={{ fontSize: 14, color: '#9e9e9e' }}>{now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+			<div style={{ fontSize: 20, color: '#9e9e9e' }}>{now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
 		</div>
 	);
 
@@ -250,9 +243,6 @@ const Dashboard = ({ onToggleMenu }) => {
 		return rows;
 	};
 	
-	// old way (no longer used since we fetch from API)
-	//const litersChartData = useMemo(() => aggregateBy(lambanogData, 'liters', litersRange), [lambanogData, litersRange]);
-	//console.log('Liters chart data:', litersChartData);
 
 	const [litersChartData, setLitersChartData] = useState([]);
 	useEffect(() => {
@@ -314,21 +304,71 @@ const Dashboard = ({ onToggleMenu }) => {
 			</div>
 
 			<div className="tableWrap ux-card" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', margin: 20, marginBottom: 30 }}>
-				<h2 style={{ color: '#333', fontSize: 20, fontWeight: 600, marginBottom: 20 }}>Batch List</h2>
-				<div style={{ overflowX: 'auto' }}>
-					{/* Outer frame */}
-					<div style={commonStyles.tableContainer}>
-						{loading ? (
-							<div style={{ padding:20 }}>
-								<div className="ux-skeleton" style={{ height:16, marginBottom:10, borderRadius:6 }} />
-								{[...Array(5)].map((_,i)=>(<div key={i} className="ux-skeleton" style={{ height:42, marginBottom:8, borderRadius:8 }} />))}
-							</div>
-						) : (
-						<table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 14 }}>
+				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+					<h2 style={{ color: '#333', fontSize: 20, fontWeight: 600, margin: 0 }}>Batch List</h2>
+					{/* Mobile scroll hint - CSS media query controlled */}
+					<div className="mobile-scroll-hint" style={{ 
+						display: 'none',
+						alignItems: 'center',
+						gap: 6,
+						fontSize: 11,
+						color: '#16a34a',
+						fontWeight: 600,
+						background: '#f0fdf4',
+						padding: '4px 8px',
+						borderRadius: 12,
+						border: '1px solid #bbf7d0'
+					}}>
+						<span>Swipe to scroll</span>
+						<span style={{ fontSize: 14 }}>→</span>
+					</div>
+				</div>
+				{/* Responsive table container with enhanced scrolling */}
+				<div 
+					className="responsive-table-container"
+					style={{
+						// Force horizontal scrolling
+						overflowX: 'scroll',
+						overflowY: 'hidden',
+						WebkitOverflowScrolling: 'touch',
+						touchAction: 'pan-x',
+						scrollBehavior: 'smooth',
+						position: 'relative',
+						scrollbarWidth: 'auto',
+						maxWidth: '100%',
+						width: '100%',
+						height: 'auto'
+					}}
+				>
+					{loading ? (
+						<div style={{ padding:20, border: '3px solid #16a34a', borderRadius: 12 }}>
+							<div className="ux-skeleton" style={{ height:16, marginBottom:10, borderRadius:6 }} />
+							{[...Array(5)].map((_,i)=>(<div key={i} className="ux-skeleton" style={{ height:42, marginBottom:8, borderRadius:8 }} />))}
+						</div>
+					) : (
+					<table style={{ 
+							// Force table to be wider than mobile screens to enable scrolling
+							width: '1000px', 
+							minWidth: '1000px',
+							borderCollapse: 'collapse', 
+							tableLayout: 'fixed', 
+							fontSize: 14,
+							border: '3px solid #16a34a',
+							borderRadius: 12
+						}}>
 							<thead>
 								<tr style={{ background: '#fff', color: '#111' }}>
 									{['Batch ID','Start Date','End Date','Liter (L)','Logging Status', 'Fermentation Status'].map((h) => (
-									<th key={h} style={commonStyles.tableHeader}>
+										<th key={h} style={{
+											...commonStyles.tableHeader,
+											whiteSpace: 'nowrap',
+											padding: '12px 16px',
+											width: h === 'Batch ID' ? '100px' : 
+												   h === 'Start Date' ? '150px' :
+												   h === 'End Date' ? '150px' :
+												   h === 'Liter (L)' ? '120px' :
+												   h === 'Logging Status' ? '190px' : '190px'
+										}}>
 										{h}
 									</th>
 									))}
@@ -337,18 +377,51 @@ const Dashboard = ({ onToggleMenu }) => {
 								<tbody>
 								{filteredBatches.map((batch) => (
 									<tr key={batch.id} style={{ backgroundColor: '#fff' }}>
-									<td style={{ ...commonStyles.tableCell, wordBreak: 'break-word' }}>{batch.id}</td>
-									<td style={commonStyles.tableCell}>{formatReadable(batch.startDate)}</td>
-									<td style={commonStyles.tableCell}>{formatReadable(batch.endDate)}</td>
-									<td style={commonStyles.tableCell}>{batch.liter || 'N/A'}</td>
-									<td style={{ ...commonStyles.tableCell, color: batch.is_logging === 1 ? 'rgba(72, 173, 255, 1)' : '#e11d48', fontWeight: 800}}>{batch.is_logging === 1 ? 'Ongoing' : 'Stopped'}</td>
-									<td style={{ ...commonStyles.tableCell, color: batch.status === 'Ready' ? '#16a34a' : '#e11d48', fontWeight: 800 }}>{batch.status === 'Ready' ? 'Ready' : 'NA'}</td>
+									<td style={{ 
+										...commonStyles.tableCell, 
+										whiteSpace: 'nowrap',
+										padding: '12px 16px',
+										minWidth: '80px'
+									}}>{batch.id}</td>
+									<td style={{
+										...commonStyles.tableCell,
+										whiteSpace: 'nowrap',
+										padding: '12px 16px',
+										minWidth: '120px'
+									}}>{formatReadable(batch.startDate)}</td>
+									<td style={{
+										...commonStyles.tableCell,
+										whiteSpace: 'nowrap',
+										padding: '12px 16px',
+										minWidth: '120px'
+									}}>{formatReadable(batch.endDate)}</td>
+									<td style={{
+										...commonStyles.tableCell,
+										whiteSpace: 'nowrap',
+										padding: '12px 16px',
+										minWidth: '100px'
+									}}>{batch.liter || 'N/A'}</td>
+									<td style={{ 
+										...commonStyles.tableCell, 
+										color: batch.is_logging === 1 ? 'rgba(72, 173, 255, 1)' : '#e11d48', 
+										fontWeight: 800,
+										whiteSpace: 'nowrap',
+										padding: '12px 16px',
+										minWidth: '120px'
+									}}>{batch.is_logging === 1 ? 'Ongoing' : 'Stopped'}</td>
+									<td style={{ 
+										...commonStyles.tableCell, 
+										color: batch.status === 'Ready' ? '#16a34a' : '#e11d48', 
+										fontWeight: 800,
+										whiteSpace: 'nowrap',
+										padding: '12px 16px',
+										minWidth: '140px'
+									}}>{batch.status === 'Ready' ? 'Ready' : 'NA'}</td>
 									</tr>
 								))}
 								</tbody>
 						</table>
-						)}
-					</div>
+					)}
 				</div>
 			</div>
 
@@ -392,7 +465,17 @@ const Dashboard = ({ onToggleMenu }) => {
 								justifyContent: 'center',
 								padding: 20
 							}}>
-								<div style={{ fontSize: 48, marginBottom: 16 }}>📊</div>
+								<img 
+								src="/Analytics.png" 
+								alt="No Data Icon"
+								style={{ 
+									width: 64, 
+									height: 64, 
+									marginBottom: 16,
+									objectFit: "contain",
+									filter: 'drop-shadow(0 4px 8px rgba(100, 116, 139, 0.2))'
+								}}
+								/>
 								<div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, color: '#64748b' }}>No Production Data</div>
 								<div style={{ fontSize: 14, color: '#94a3b8' }}>Save your first fermentation record to see production trends</div>
 							</div>

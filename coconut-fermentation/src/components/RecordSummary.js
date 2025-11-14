@@ -176,7 +176,7 @@ const RecordSummary = ({ onToggleMenu }) => {
 							{[...Array(6)].map((_,i)=>(<div key={i} className="ux-skeleton" style={{ height:52, borderRadius:12, marginBottom:12 }} />))}
 						</div>
 					) : (
-					<div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+					<div className="inputRow" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(250px, 1fr))', gap:12 }}>
 						{[
 							{ label: 'Brix (sugar):', value: selected?.brix ?? 'N/A', hint:'Target ≥ 15 °Bx' },
 							{ label: 'Alcohol Content:', value: selected?.alcohol ?? 'N/A', hint:'Target ≥ 20 %' },
