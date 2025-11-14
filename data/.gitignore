@@ -4,4 +4,4 @@ __pycache__/
 *.csv
 model/
 data.ipynb
-training model/
+"training model"/
