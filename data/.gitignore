@@ -1,7 +1,0 @@
-ispindel.db
-ispindel.db-journal
-__pycache__/
-*.csv
-model/
-data.ipynb
-"training model"/

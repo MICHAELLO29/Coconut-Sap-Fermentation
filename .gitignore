@@ -1,34 +1,33 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
+# React app dependencies
+coconut-fermentation/node_modules
+coconut-fermentation/.pnp
+coconut-fermentation/.pnp.js
 
-# testing
-/coverage
+# React app testing
+coconut-fermentation/coverage
 
-# production
-/build
+# React app production
+coconut-fermentation/build
 
 # misc
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
+coconut-fermentation/.env.local
+coconut-fermentation/.env.development.local
+coconut-fermentation/.env.test.local
+coconut-fermentation/.env.production.local
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+coconut-fermentation/.env
 
-.env
-
-/data/ispindel.db
-/data/ispindel.db-journal
-/data/__pycache__/
-/data/*.csv
-/data/model/
-/data/data.ipynb
-/data/training model/
-/data/*.pt
+# Data folder
+data/ispindel.db
+data/ispindel.db-journal
+data/__pycache__/
+data/*.csv
+data/model/
+data/data.ipynb
+data/training model/
+data/*.pt
