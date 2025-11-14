@@ -31,3 +31,4 @@ data/model/
 data/data.ipynb
 data/training model/
 data/*.pt
+data/test_send.py

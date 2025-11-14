@@ -2,15 +2,15 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
 from datetime import datetime
-import tensorflow as tf
+#import tensorflow as tf
 import numpy as np
 import pandas as pd
-import joblib
+#import joblib
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})  # Allow React app
-
-model_path = "model/model_output/tuba_model_best_BiLSTM.h5"
+"""
+model_path = "model/model_output/tuba_model_best_BiLSTM.tflite"
 feature_scaler_path = "model/model_output/feature_scalers.joblib"
 brix_scaler_path = "model/model_output/brix_scaler.joblib"
 threshold_path = "model/optimal_threshold.txt"
@@ -26,7 +26,7 @@ if isinstance(feature_scaler, dict):
 
 with open(threshold_path, 'r') as f:
     threshold = float(f.read().strip())
-
+"""
 def get_db_connection():
     conn = sqlite3.connect("ispindel.db")
     conn.row_factory = sqlite3.Row  # returns dict-like rows
@@ -314,11 +314,8 @@ def get_liter_chart():
    
     return jsonify([{"month": row["month"], "total_liters": row["total_liters"]} for row in rows]) 
 
-<<<<<<< HEAD
-
+"""
 # bound for changes, refer to readme.md for more details
-=======
->>>>>>> 856f966c08bca5b8f91d456f7a6e7141f59406b3
 @app.route("/predict", methods=["GET"])
 def predict():
     df = get_latest_data()
@@ -359,7 +356,12 @@ def predict():
         "predicted_brix": float(pred_brix[0][0]),
         "state": state
     })
-
+"""
 # Start server
+
+@app.route("/test", methods=["GET"])
+def test():
+    return "Server is running", 200
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
