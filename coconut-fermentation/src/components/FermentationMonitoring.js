@@ -3,9 +3,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import Header from './Header';
 import { commonStyles, useGlobalStyles } from './styles/GlobalStyles';
 
-<<<<<<< HEAD
 const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${process.env.REACT_APP_API_PORT || "5000"}`;
-=======
+
 // Smoothing Algorithm: Moving Average
 const applyMovingAverage = (data, windowSize = 5) => {
 	if (!data || data.length < windowSize) return data;
@@ -30,7 +29,6 @@ const applyMovingAverage = (data, windowSize = 5) => {
 	
 	return smoothed;
 };
->>>>>>> 856f966c08bca5b8f91d456f7a6e7141f59406b3
 
 // Helpers
 const parseDMY = (d) => {
