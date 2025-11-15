@@ -109,7 +109,7 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
   const [activeBatch, setActiveBatch] = useState(null);
 
   useEffect(() => {
-    fetch(`http://${API_BASE}/active_batch`)
+    fetch(`${API_BASE}/active_batch`)
       .then(res => res.json())
       .then(data => {
         if (data.active) {
@@ -122,7 +122,7 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
   // Confirm & Start monitoring the batch
   const handleConfirm = async () => {
     try {
-      const res = await fetch(`http://${API_BASE}/create_batch`, {
+      const res = await fetch(`${API_BASE}/create_batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
