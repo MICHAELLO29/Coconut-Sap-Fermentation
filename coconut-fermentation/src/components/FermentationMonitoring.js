@@ -18,7 +18,7 @@ const applyMovingAverage = (data, windowSize = 5) => {
 		const avgBrix = window.reduce((sum, p) => sum + (p.brix || 0), 0) / window.length;
 		const avgGravity = window.reduce((sum, p) => sum + (p.gravity || 0), 0) / window.length;
 		const avgTemp = window.reduce((sum, p) => sum + (p.temperature || 0), 0) / window.length;
-		
+
 		smoothed.push({
 			...data[i],
 			brix: avgBrix,
@@ -154,6 +154,39 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 			console.log('API not available, using simulated data');
 		}
 		return null;
+	};
+
+	const [abvData, setAbvData] = useState(null);
+	const [abvLoading, setAbvLoading] = useState(false);
+	const [abvError, setAbvError] = useState(null);
+
+	const handleUpdateABV = async () => {
+    if (!selectedId) return;
+    setAbvLoading(true);
+    setAbvError(null);
+
+    try {
+        const response = await fetch(`${API_BASE}/update_abv/${selectedId}`, {
+            method: 'POST',
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Failed to update ABV');
+        }
+
+        const data = await response.json();
+        setAbvData(data);
+
+        // Optionally, you can update monitoringData's latest point with current_abv
+        setMonitoringData(prev => prev.map((point, idx) =>
+            idx === prev.length - 1 ? { ...point, current_abv: data.current_abv } : point
+        ));
+    } catch (err) {
+        setAbvError(err.message);
+    } finally {
+        setAbvLoading(false);
+    }
 	};
 
 	// Generate monitoring data only when live monitoring starts
@@ -366,6 +399,29 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 							>
 								{isLive ? '⏹ Stop Live' : '▶ Start Live'}
 							</button>
+							<button
+								onClick={handleUpdateABV}
+								disabled={abvLoading}
+								style={{
+									padding: '12px 20px',
+									borderRadius: 8,
+									border: 'none',
+									background: '#0b70f3ff',
+									color: '#fff',
+									cursor: 'pointer',
+									fontWeight: 700,
+									minWidth: 120
+								}}
+							>
+								{abvLoading ? 'Updating...' : 'Update ABV'}
+							</button>
+
+							{abvError && <div style={{ color: 'red', marginTop: 6 }}>{abvError}</div>}
+							{abvData && !abvLoading && (
+								<div style={{ marginTop: 6, fontSize: 12, color: '#111' }}>
+									Current ABV updated: {abvData.current_abv.toFixed(2)}% (Original Gravity: {abvData.original_gravity})
+								</div>
+							)}
 							{sessionEndTime && !isLive && (
 								<div style={{ 
 									fontSize: 12, 
@@ -734,7 +790,8 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 							{[
 								{ label: 'Brix', value: `${displayData[displayData.length - 1]?.brix?.toFixed(1) || '—'}°Bx`, color: '#f59e0b' },
 								{ label: 'gravity', value: `${displayData[displayData.length - 1]?.gravity?.toFixed(1) || '—'}`, color: '#2563eb' },
-								{ label: 'Temperature', value: `${displayData[displayData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' }
+								{ label: 'Temperature', value: `${displayData[displayData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' },
+								{ label: 'Current Alcohol by Volume', value: `${abvData.current_abv.toFixed(2) || '-'}%`, color: '#d85d5dff'}
 							].map((item, i) => (
 								<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8f9fa', borderRadius: 8 }}>
 									<span style={{ color: '#666', fontWeight: 600 }}>{item.label}</span>
