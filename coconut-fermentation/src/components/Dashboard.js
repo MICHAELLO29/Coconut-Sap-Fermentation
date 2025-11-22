@@ -217,6 +217,58 @@ const Dashboard = ({ onToggleMenu }) => {
 
 	const lambanogData = baseSeries.map(r => ({ date: r.date, liters: r.liters }));
 
+	// Add near your other useState hooks
+	const [fermentationStatus, setFermentationStatus] = useState({}); 
+	// e.g., { batchId: prediction_value }
+
+	// Polling inference API every 15 seconds
+	useEffect(() => {
+		let aborted = false;
+
+		const fetchFermentationStatus = async () => {
+			try {
+				// Loop over batches that are logging
+				const loggingBatches = batches.filter(b => b.is_logging === 1);
+
+				for (const batch of loggingBatches) {
+					// Construct payload to send to inference API
+					const payload = {
+						gravity: batch.gravity ?? 0,
+						temperature: batch.temperature ?? 0
+					};
+
+					const res = await fetch(`${API_BASE}:5000/predict`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(payload)
+					});
+
+					if (!res.ok) continue;
+
+					const data = await res.json();
+					if (!aborted) {
+						setFermentationStatus(prev => ({
+							...prev,
+							[batch.id]: data.prediction
+						}));
+					}
+				}
+			} catch (err) {
+				console.error("Error fetching fermentation status:", err);
+			}
+		};
+
+		fetchFermentationStatus();
+		const interval = setInterval(fetchFermentationStatus, 15000);
+
+		return () => {
+			aborted = true;
+			clearInterval(interval);
+		};
+	}, [batches]); // re-run if batches list changes
+
+
+
 	// Day / Month / Year selector for chart
 	const [litersRange, setLitersRange] = useState('day');
 	const aggregateBy = (rows, valueKey, unit) => {
@@ -411,12 +463,12 @@ const Dashboard = ({ onToggleMenu }) => {
 									}}>{batch.is_logging === 1 ? 'Ongoing' : 'Stopped'}</td>
 									<td style={{ 
 										...commonStyles.tableCell, 
-										color: batch.status === 'Ready' ? '#16a34a' : '#e11d48', 
+										color: batch.status === 1 ? '#16a34a' : '#e11d48', 
 										fontWeight: 800,
 										whiteSpace: 'nowrap',
 										padding: '12px 16px',
 										minWidth: '140px'
-									}}>{batch.status === 'Ready' ? 'Ready' : 'NA'}</td>
+									}}>{batch.status === 1 ? 'Ready' : 'NA'}</td>
 									</tr>
 								))}
 								</tbody>
