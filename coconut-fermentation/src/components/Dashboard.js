@@ -227,32 +227,11 @@ const Dashboard = ({ onToggleMenu }) => {
 
 		const fetchFermentationStatus = async () => {
 			try {
-				// Loop over batches that are logging
-				const loggingBatches = batches.filter(b => b.is_logging === 1);
+				const res = await fetch(`${API_BASE}/classify`, { method: "POST" });
+				if (!res.ok) return;
 
-				for (const batch of loggingBatches) {
-					// Construct payload to send to inference API
-					const payload = {
-						gravity: batch.gravity ?? 0,
-						temperature: batch.temperature ?? 0
-					};
-
-					const res = await fetch(`${API_BASE}:5000/predict`, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify(payload)
-					});
-
-					if (!res.ok) continue;
-
-					const data = await res.json();
-					if (!aborted) {
-						setFermentationStatus(prev => ({
-							...prev,
-							[batch.id]: data.prediction
-						}));
-					}
-				}
+				const data = await res.json();
+				if (!aborted) setFermentationStatus(data);
 			} catch (err) {
 				console.error("Error fetching fermentation status:", err);
 			}
@@ -265,7 +244,25 @@ const Dashboard = ({ onToggleMenu }) => {
 			aborted = true;
 			clearInterval(interval);
 		};
-	}, [batches]); // re-run if batches list changes
+	}, []);  // <-- remove batches dependency
+
+
+	const handleRerun = async () => {
+	try {
+		const res = await fetch(`${API_BASE}/rerun`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" }
+		});
+
+		const data = await res.json();
+		console.log("Rerun response:", data);
+
+		alert("Classification rerun completed!");
+	} catch (err) {
+		console.error("Error calling /rerun:", err);
+		alert("Failed to rerun classification.");
+	}
+	};
 
 
 
@@ -358,6 +355,28 @@ const Dashboard = ({ onToggleMenu }) => {
 			<div className="tableWrap ux-card" style={{ background: 'white', padding: 25, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', margin: 20, marginBottom: 30 }}>
 				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
 					<h2 style={{ color: '#333', fontSize: 20, fontWeight: 600, margin: 0 }}>Batch List</h2>
+
+					<div style={{ display: 'flex', gap: 10 }}>
+					{/* Fetch Classify Button */}
+					<button 
+						onClick={handleRerun}
+						style={{
+							backgroundColor: '#4CAF50',
+							color: 'white',
+							padding: '8px 16px',
+							borderRadius: 6,
+							border: 'none',
+							fontWeight: 600,
+							cursor: 'pointer',
+							transition: '0.2s',
+						}}
+						onMouseOver={e => e.currentTarget.style.backgroundColor = '#43a047'}
+						onMouseOut={e => e.currentTarget.style.backgroundColor = '#4CAF50'}
+					>
+						Rerun Classify
+					</button>
+					</div>
+
 					{/* Mobile scroll hint - CSS media query controlled */}
 					<div className="mobile-scroll-hint" style={{ 
 						display: 'none',
@@ -374,6 +393,7 @@ const Dashboard = ({ onToggleMenu }) => {
 						<span>Swipe to scroll</span>
 						<span style={{ fontSize: 14 }}>→</span>
 					</div>
+					
 				</div>
 				{/* Responsive table container with enhanced scrolling */}
 				<div 
@@ -463,12 +483,12 @@ const Dashboard = ({ onToggleMenu }) => {
 									}}>{batch.is_logging === 1 ? 'Ongoing' : 'Stopped'}</td>
 									<td style={{ 
 										...commonStyles.tableCell, 
-										color: batch.status === 1 ? '#16a34a' : '#e11d48', 
+										color: batch.fermentation_status === 1 ? '#16a34a' : '#e11d48', 
 										fontWeight: 800,
 										whiteSpace: 'nowrap',
 										padding: '12px 16px',
 										minWidth: '140px'
-									}}>{batch.status === 1 ? 'Ready' : 'NA'}</td>
+									}}>{batch.fermentation_status === 1 ? 'Ready' : 'Not Ready'}</td>
 									</tr>
 								))}
 								</tbody>
