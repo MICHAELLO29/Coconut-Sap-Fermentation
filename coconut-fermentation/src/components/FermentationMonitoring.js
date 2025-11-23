@@ -156,7 +156,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		return null;
 	};
 
-	const [abvData, setAbvData] = useState(null);
+	const [abvData, setAbvData] = useState({current_abv: 0});
 	const [abvLoading, setAbvLoading] = useState(false);
 	const [abvError, setAbvError] = useState(null);
 
@@ -419,7 +419,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 							{abvError && <div style={{ color: 'red', marginTop: 6 }}>{abvError}</div>}
 							{abvData && !abvLoading && (
 								<div style={{ marginTop: 6, fontSize: 12, color: '#111' }}>
-									Current ABV updated: {abvData.current_abv.toFixed(2)}% (Original Gravity: {abvData.original_gravity})
+									Current ABV updated: {abvData.current_abv.toFixed(2) ?? "N/A"}% (Original Gravity: {abvData.original_gravity})
 								</div>
 							)}
 							{sessionEndTime && !isLive && (
@@ -791,7 +791,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 								{ label: 'Brix', value: `${displayData[displayData.length - 1]?.brix?.toFixed(1) || '—'}°Bx`, color: '#f59e0b' },
 								{ label: 'gravity', value: `${displayData[displayData.length - 1]?.gravity?.toFixed(1) || '—'}`, color: '#2563eb' },
 								{ label: 'Temperature', value: `${displayData[displayData.length - 1]?.temperature?.toFixed(1) || '—'}°C`, color: '#16a34a' },
-								{ label: 'Current Alcohol by Volume', value: `${abvData.current_abv.toFixed(2) || '-'}%`, color: '#d85d5dff'}
+								{ label: 'Current Alcohol by Volume', value: `${abvData.current_abv.toFixed(2) ?? '-'}%`, color: '#d85d5dff'}
 							].map((item, i) => (
 								<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f8f9fa', borderRadius: 8 }}>
 									<span style={{ color: '#666', fontWeight: 600 }}>{item.label}</span>
