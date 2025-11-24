@@ -52,11 +52,6 @@ const Dashboard = ({ onToggleMenu }) => {
 	
 	// Load batches from localStorage or fallback
 	const defaultBatches = useMemo(() => ([
-		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', phLevel: 5.6, brix: 16.0, alcohol: 25.0 },
-		{ id: '002', startDate: '22/05/25', endDate: '25/05/25' },
-		{ id: '003', startDate: '25/05/25', endDate: '28/05/25' },
-		{ id: '004', startDate: '27/05/25', endDate: '30/05/25' },
-		{ id: '005', startDate: '30/05/25', endDate: '02/06/25' }
 	]), []);
 	
 	const batchesRaw = useMemo(() => {
