@@ -45,12 +45,8 @@ const formatDMY = (date) => {
 	return `${dd}/${mm}/${yy}`;
 };
 
-const addDays = (dateStr, days) => {
-	const dt = parseDMY(dateStr);
-	dt.setDate(dt.getDate() + days);
-	return formatDMY(dt);
-};
-
+// No longer needed - status is now determined by parameter ranges, not batch age
+// Keeping function for backward compatibility but it doesn't affect isReady anymore
 const computeStatuses = (list) => {
 	const sorted = [...list].sort((a, b) => parseDMY(a.startDate) - parseDMY(b.startDate));
 	return sorted.map((b, idx) => ({ ...b, status: idx === 0 ? 'Ready' : 'N/A' }));
@@ -58,15 +54,6 @@ const computeStatuses = (list) => {
 
 const FermentationMonitoring = ({ onToggleMenu }) => {
 	useGlobalStyles(); // Inject global styles
-
-	// Load batches similar to Dashboard
-	const defaultBatches = useMemo(() => ([
-		{ id: '001', startDate: '20/05/25', endDate: '23/05/25', brix: 16.0, gravity: 25.0, temperature: '32.0 C', timeInterval: '56:04:01' },
-		{ id: '002', startDate: '22/05/25', endDate: '25/05/25' },
-		{ id: '003', startDate: '25/05/25', endDate: '28/05/25' },
-		{ id: '004', startDate: '27/05/25', endDate: '30/05/25' },
-		{ id: '005', startDate: '30/05/25', endDate: '02/06/25' }
-	]), []);
 	
 	// Hold raw data from API
 	const [batchesRaw, setBatchesRaw] = useState([]);
@@ -244,12 +231,24 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		return () => clearInterval(interval);
 	}, [isLive, monitoringData.length, selectedId]);
 	
-	const isReady = selected?.status === 'Ready';
+	// Check if current parameters are within optimal ranges
+	const checkParametersInRange = () => {
+		if (!isLive || monitoringData.length === 0) return false;
+		
+		const latestData = monitoringData[monitoringData.length - 1];
+		const brixInRange = latestData.brix >= 12 && latestData.brix <= 18;
+		const gravityInRange = latestData.gravity >= 0 && latestData.gravity <= 12;
+		const tempInRange = latestData.temperature >= 28 && latestData.temperature <= 32;
+		
+		return brixInRange && gravityInRange && tempInRange;
+	};
+	
+	const isReady = checkParametersInRange();
 	const analysisText = !isLive 
 		? 'Click "Start Live" to begin real-time monitoring from IoT sensors.'
 		: isReady 
 			? 'Fermentation is progressing normally. All parameters are within optimal ranges.'
-			: 'Live monitoring active. Data updates every 3 seconds from IoT devices.';
+			: 'Live monitoring active. Data updates every 15 seconds from IoT devices.';
 
 	const toggleParameter = (param) => {
 		setVisibleParameters(prev => ({
