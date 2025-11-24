@@ -76,7 +76,28 @@ const RecordSummary = ({ onToggleMenu }) => {
 	}
 	}, [batches, selectedId]);
 	
-	
+	const [readingRaw, setReadingRaw] = useState(null);
+	const [loadingReading, setLoadingReading] = useState(true);
+
+	useEffect(() => {
+		if (!selectedId) return;
+		const fetchReadings = async () => {
+			try {
+				const res = await fetch(`${API_BASE}/get_latest_reading/${selectedId}`);
+				if (!res.ok) throw new Error("Failed to fetch readings");
+
+				const data = await res.json();
+				setReadingRaw(data);
+			} catch (err) {
+				console.error("Error loading batches:", err);
+				setReadingRaw(null);
+			} finally {
+				setLoadingReading(false);
+			}
+		};
+
+		fetchReadings();
+	}, [selectedId]);
 
 	useEffect(()=>{ 
 		if (sortedBatches.length && !sortedBatches.find(b=>b.id===selectedId)) {
@@ -140,7 +161,7 @@ const RecordSummary = ({ onToggleMenu }) => {
 	const analysisText = isReady ? 'Based on the input parameters, the tuba is ready for distillation.' : 'Batch is queued; more data is needed before distillation.';
 
 	// Completion meter across displayed fields
-	const summaryFields = [selected?.brix, selected?.alcohol, selected?.temperature, selected?.startDate];
+	const summaryFields = [readingRaw?.brix, readingRaw?.alcohol, readingRaw?.temperature, selected?.startDate];
 	const summaryCompleted = summaryFields.reduce((n,v)=>n+(v?1:0),0);
 	const summaryTotal = summaryFields.length;
 
@@ -177,9 +198,9 @@ const RecordSummary = ({ onToggleMenu }) => {
 					) : (
 					<div className="inputRow" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(250px, 1fr))', gap:12 }}>
 						{[
-							{ label: 'Brix (sugar):', value: selected?.brix ?? 'N/A', hint:'Target ≥ 15 °Bx' },
-							{ label: 'Alcohol Content:', value: selected?.alcohol ?? 'N/A', hint:'Target ≥ 20 %' },
-							{ label: 'Temperature:', value: selected?.temperature ?? 'N/A', hint:'Optimal 28–35 °C' },
+							{ label: 'Brix (sugar):', value: `${readingRaw?.brix.toFixed(3)} °Bx` ?? 'N/A', hint:'Target ≥ 15 °Bx' },
+							{ label: 'Alcohol by Volume:', value: `${readingRaw?.current_abv.toFixed(2)}%` ?? 'N/A', hint:'Target ≥ 20 %' },
+							{ label: 'Temperature:', value: `${readingRaw?.temperature.toFixed(2)}` ?? 'N/A', hint:'Optimal 28–35 °C' },
 							{ label: 'Log Date', value: selected?.startDate ?? 'N/A' },
 						].map((row, i) => (
 							<div key={i} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px', border:'1px solid #eee', borderRadius:12, background:'#fff' }}>
@@ -206,7 +227,7 @@ const RecordSummary = ({ onToggleMenu }) => {
 							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf' }}>Batch</div>
 							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>{selected?.id || '—'}</div>
 							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf' }}>Total Tuba Produced</div>
-							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>{selected?.produced ?? 'N/A'}</div>
+							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>{selected?.liter ?? 'N/A'}</div>
 							<div style={{ padding: 14, background: '#fff', borderRight: '1px solid #cfe3cf', borderBottom: '1px solid #cfe3cf' }}>Duration</div>
 							<div style={{ padding: 14, background: '#fff', borderBottom: '1px solid #cfe3cf' }}>
 								{durationDays}
