@@ -217,11 +217,8 @@ const Dashboard = ({ onToggleMenu }) => {
 
 	const lambanogData = baseSeries.map(r => ({ date: r.date, liters: r.liters }));
 
-	// Add near your other useState hooks
-	const [fermentationStatus, setFermentationStatus] = useState({}); 
-	// e.g., { batchId: prediction_value }
-
 	// Polling inference API every 15 seconds
+	const [fermentationStatus, setFermentationStatus] = useState({}); 
 	useEffect(() => {
 		let aborted = false;
 
@@ -238,13 +235,13 @@ const Dashboard = ({ onToggleMenu }) => {
 		};
 
 		fetchFermentationStatus();
-		const interval = setInterval(fetchFermentationStatus, 15000);
+		const interval = setInterval(fetchFermentationStatus, 30000);
 
 		return () => {
 			aborted = true;
 			clearInterval(interval);
 		};
-	}, []);  // <-- remove batches dependency
+	}, []);
 
 
 	const handleRerun = async () => {

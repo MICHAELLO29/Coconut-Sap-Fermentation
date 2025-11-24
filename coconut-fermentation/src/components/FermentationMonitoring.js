@@ -31,12 +31,7 @@ const applyMovingAverage = (data, windowSize = 5) => {
 };
 
 // Helpers
-const parseDMY = (d) => {
-	if (!d) return new Date(0);
-	const [dd, mm, yy] = d.split('/');
-	const year = Number(yy) + 2000; // '25' -> 2025
-	return new Date(year, Number(mm) - 1, Number(dd));
-};
+const parseDMY = str => new Date(str.replace(" ", "T"));
 
 const formatDMY = (date) => {
 	const dd = String(date.getDate()).padStart(2, '0');
@@ -53,7 +48,7 @@ const addDays = (dateStr, days) => {
 
 const computeStatuses = (list) => {
 	const sorted = [...list].sort((a, b) => parseDMY(a.startDate) - parseDMY(b.startDate));
-	return sorted.map((b, idx) => ({ ...b, status: idx === 0 ? 'Ready' : 'N/A' }));
+	return sorted.map((b, idx) => ({ ...b, fermentation_status: idx === 1 ? 'Ready' : 'N/A' }));
 };
 
 const FermentationMonitoring = ({ onToggleMenu }) => {
@@ -142,6 +137,31 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	const [elapsedTime, setElapsedTime] = useState(0);
 	const [sessionHistory, setSessionHistory] = useState([]);
 	
+	const [fermentationStatus, setFermentationStatus] = useState({}); 
+	useEffect(() => {
+		let aborted = false;
+
+		const fetchFermentationStatus = async () => {
+			try {
+				const res = await fetch(`${API_BASE}/classify`, { method: "POST" });
+				if (!res.ok) return;
+
+				const data = await res.json();
+				if (!aborted) setFermentationStatus(data);
+			} catch (err) {
+				console.error("Error fetching fermentation status:", err);
+			}
+		};
+
+		fetchFermentationStatus();
+		const interval = setInterval(fetchFermentationStatus, 30000);
+
+		return () => {
+			aborted = true;
+			clearInterval(interval);
+		};
+	}, []);
+
 	// API function to fetch real IoT data
 	const fetchIoTData = async () => {
 		try {
@@ -244,12 +264,14 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		return () => clearInterval(interval);
 	}, [isLive, monitoringData.length, selectedId]);
 	
-	const isReady = selected?.status === 'Ready';
+
+	const isReady = selected?.fermentation_status === 1;
 	const analysisText = !isLive 
 		? 'Click "Start Live" to begin real-time monitoring from IoT sensors.'
 		: isReady 
-			? 'Fermentation is progressing normally. All parameters are within optimal ranges.'
-			: 'Live monitoring active. Data updates every 3 seconds from IoT devices.';
+			? 'Fermentation is predicted to be complete. Make sure to check tuba for confirmation.' 
+			:'Live monitoring active. Data updates every 15 seconds from IoT devices.';
+
 
 	const toggleParameter = (param) => {
 		setVisibleParameters(prev => ({
@@ -355,7 +377,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 							<div style={{ fontSize: 24, fontWeight: 800, color: '#111' }}>Batch {selected?.id || '—'}</div>
 							<div style={{ fontSize: 14, color: '#666' }}>Started: {selected?.startDate || '—'} • Duration: {selected?.duration || '—'} days</div>
 							<div style={{ fontSize: 13, color: '#10b981', fontWeight: 600, marginTop: 4 }}>
-								Status: {selected?.status || 'Unknown'}
+								Status: {selected?.fermentation_status || 'Unknown'}
 							</div>
 							
 							{isLive && (
