@@ -120,8 +120,8 @@ const Dashboard = ({ onToggleMenu }) => {
 	);
 
 	// Quick insight metrics for an at-a-glance dashboard
-	const readyCount = useMemo(() => batches.filter(b => b.status === 'Ready').length, [batches]);
-	const notReadyCount = useMemo(() => Math.max(0, (batches?.length || 0) - readyCount), [batches, readyCount]);
+	const readyCount = useMemo(() => batches.filter(b => b.fermentation_status === 1).length, [batches]);
+	const notReadyCount = useMemo(() => batches.filter(b => b.fermentation_status !== 1).length, [batches]);
 
 	// Animated counters
 	const useCountUp = (target, durationMs = 600) => {
@@ -320,7 +320,7 @@ const Dashboard = ({ onToggleMenu }) => {
 					<div style={{ fontSize: 12, color: '#1b5e20', marginTop: 8 }}>Next completion {nextCompletion ? nextCompletion.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) : 'N/A'}</div>
 				</div>
 				<div className="card ux-card" style={commonStyles.redCard}>
-					<h3 style={{ color: '#7f1d1d', fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Batches In Progress</h3>
+					<h3 style={{ color: '#7f1d1d', fontSize: 16, fontWeight: 900, marginBottom: 6 }}>Batches Not Ready</h3>
 					<div style={commonStyles.redNumber}>{dispNotReady}</div>
 					<div style={{ fontSize: 12, color: '#7f1d1d', marginTop: 8 }}>Monitoring for optimal pH and Brix</div>
 				</div>

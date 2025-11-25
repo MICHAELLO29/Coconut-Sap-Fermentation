@@ -120,6 +120,9 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	const [elapsedTime, setElapsedTime] = useState(0);
 	const [sessionHistory, setSessionHistory] = useState([]);
 	
+	// Current timestamp for live monitoring
+	const [currentTimestamp, setCurrentTimestamp] = useState(new Date());
+	
 	const [fermentationStatus, setFermentationStatus] = useState({}); 
 	useEffect(() => {
 		let aborted = false;
@@ -204,7 +207,19 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 			const iotData = await fetchIoTData();
 			
 			if (iotData) {
-				setMonitoringData(iotData);
+				console.log('IoT Data received:', iotData);
+				console.log('First data point:', iotData[0]);
+				// Add timestamp to each data point if it doesn't exist
+				const dataWithTimestamps = iotData.map((point, index) => ({
+					...point,
+					time: point.time || new Date().toLocaleTimeString('en-US', {
+						hour: '2-digit',
+						minute: '2-digit',
+						second: '2-digit',
+						hour12: true
+					})
+				}));
+				setMonitoringData(dataWithTimestamps);
 			} else {
 				// No fallback - device must be connected for live monitoring
 				console.log('IoT device not connected - no data available');
@@ -227,20 +242,56 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 			// Try to fetch real-time IoT data
 			const iotData = await fetchIoTData();
 			
-			if (iotData) {
-				setMonitoringData(iotData);
+			if (iotData && Array.isArray(iotData) && iotData.length > 0) {
+				// Get the latest data point from the API
+				const latestPoint = iotData[iotData.length - 1];
+				
+				// Add timestamp to the new data point
+				const newPointWithTimestamp = {
+					...latestPoint,
+					time: latestPoint.time || new Date().toLocaleTimeString('en-US', {
+						hour: '2-digit',
+						minute: '2-digit',
+						second: '2-digit',
+						hour12: true
+					})
+				};
+				
+				// Append the new point to existing data (keep all historical data)
+				setMonitoringData(prev => [...prev, newPointWithTimestamp]);
 			} else {
-				// Fallback to simulated updates
-				setMonitoringData(prev => prev.map(point => ({
-					...point,
-					brix: Math.max(8, Math.min(18, point.brix + (Math.random() - 0.5) * 0.1)),
-					gravity: Math.max(0, Math.min(12, point.gravity + (Math.random() - 0.5) * 0.2)),
-					temperature: Math.max(20, Math.min(35, point.temperature + (Math.random() - 0.5) * 0.5))
-				})));
+				// Fallback to simulated updates - add a new point with slight variations
+				setMonitoringData(prev => {
+					if (prev.length === 0) return prev;
+					const lastPoint = prev[prev.length - 1];
+					const newPoint = {
+						brix: Math.max(8, Math.min(18, lastPoint.brix + (Math.random() - 0.5) * 0.1)),
+						gravity: Math.max(0, Math.min(12, lastPoint.gravity + (Math.random() - 0.5) * 0.2)),
+						temperature: Math.max(20, Math.min(35, lastPoint.temperature + (Math.random() - 0.5) * 0.5)),
+						time: new Date().toLocaleTimeString('en-US', {
+							hour: '2-digit',
+							minute: '2-digit',
+							second: '2-digit',
+							hour12: true
+						})
+					};
+					return [...prev, newPoint];
+				});
 			}
-		}, 3000); // Update every 3 seconds
+		}, 15000); // Update every 15 seconds
 		return () => clearInterval(interval);
 	}, [isLive, monitoringData.length, selectedId]);
+	
+	// Update timestamp every second when live monitoring is active
+	useEffect(() => {
+		if (!isLive) return;
+		
+		const interval = setInterval(() => {
+			setCurrentTimestamp(new Date());
+		}, 1000); // Update every second
+		
+		return () => clearInterval(interval);
+	}, [isLive]);
 	
 	// Check if current parameters are within optimal ranges
 	const checkParametersInRange = () => {
@@ -612,9 +663,25 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 							</div>
 						) : (
 							<ResponsiveContainer>
-								<LineChart data={monitoringData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+								<LineChart data={monitoringData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
 									<CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-									<XAxis dataKey="time" stroke="#666" fontSize={12} />
+									<XAxis 
+										dataKey="time" 
+										stroke="#666" 
+										fontSize={10}
+										angle={-45}
+										textAnchor="end"
+										height={70}
+										interval={0}
+										tickFormatter={(value) => {
+											// Value should already be a formatted time string from the data
+											if (value && typeof value === 'string') {
+												return value;
+											}
+											// Fallback: return empty if no value
+											return '';
+										}}
+									/>
 									<YAxis stroke="#666" fontSize={12} />
 									{showDataPoints && (
 										<Tooltip 
@@ -756,7 +823,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 					
 					{/* Analysis */}
 					<div className="ux-card" style={{ 
-						background: !isLive ? '#f8f9fa' : isReady ? '#e8f5e8' : isApproaching ? '#fef3c7' : '#fee2e2', 
+						background: !isLive ? '#f8f9fa' : isReady ? '#e8f5e8' : isApproaching ? '#dbeafe' : '#fee2e2', 
 						padding: 18, 
 						borderRadius: 12, 
 						boxShadow: '0 2px 8px rgba(0,0,0,0.06)' 
@@ -764,14 +831,14 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 						<div style={{ 
 							fontSize: 18, 
 							fontWeight: 800, 
-							color: !isLive ? '#666' : isReady ? '#1b5e20' : isApproaching ? '#92400e' : '#7f1d1d', 
+							color: !isLive ? '#666' : isReady ? '#1b5e20' : isApproaching ? '#1e40af' : '#7f1d1d', 
 							marginBottom: 8 
 						}}>Analysis</div>
 						<div style={{ display: 'flex', gap: 10 }}>
 							<div style={{ 
 								width: 20, 
 								height: 20, 
-								background: !isLive ? '#999' : isReady ? '#16a34a' : isApproaching ? '#f59e0b' : '#e11d48', 
+								background: !isLive ? '#999' : isReady ? '#16a34a' : isApproaching ? '#3b82f6' : '#e11d48', 
 								color: '#fff', 
 								borderRadius: '50%', 
 								display: 'flex', 
@@ -783,7 +850,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 								{!isLive ? '⏸' : isReady ? '✓' : isApproaching ? '◐' : '●'}
 							</div>
 							<div style={{ 
-								color: !isLive ? '#666' : isReady ? '#065f46' : isApproaching ? '#92400e' : '#7f1d1d', 
+								color: !isLive ? '#666' : isReady ? '#065f46' : isApproaching ? '#1e40af' : '#7f1d1d', 
 								fontWeight: 600, 
 								fontSize: 14 
 							}}>{analysisText}</div>
