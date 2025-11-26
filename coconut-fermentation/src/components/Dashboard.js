@@ -182,7 +182,7 @@ const Dashboard = ({ onToggleMenu }) => {
 	};
 	
 	const baseSeries = useMemo(() => {
-		// Only show data from saved records - no hardcoded fallback data
+		// Only show data from saved records 
 		let seedLiters = [];
 		let seedSales = [];
 		try {
@@ -262,7 +262,7 @@ const Dashboard = ({ onToggleMenu }) => {
 	const [litersRange, setLitersRange] = useState('day');
 	const aggregateBy = (rows, valueKey, unit) => {
 		if (unit === 'day') return rows;
-		// Helper: month aggregation
+		// month aggregation
 		const toMonthTotals = () => {
 			const totals = {};
 			rows.forEach(r => {
@@ -278,7 +278,7 @@ const Dashboard = ({ onToggleMenu }) => {
 			return toMonthTotals();
 		}
 		if (unit === 'year') {
-			// For this dataset, show monthly points within the year (more readable than a single total point)
+			// For this dataset, show monthly points within the year
 			return toMonthTotals();
 		}
 		return rows;
@@ -293,7 +293,7 @@ const Dashboard = ({ onToggleMenu }) => {
 		.catch(err => console.error("Error fetching liter chart: ", err));
 	}, []);
 
-	// convert iso format date to user-friendly date display
+	// convert iso format date to readable
 	function formatReadable(dateString) {
 	const d = new Date(dateString);
 	return d.toLocaleDateString('en-US', { 
@@ -369,7 +369,7 @@ const Dashboard = ({ onToggleMenu }) => {
 					</button>
 					</div>
 
-					{/* Mobile scroll hint - CSS media query controlled */}
+					{/* Mobile scroll - CSS media query controlled */}
 					<div className="mobile-scroll-hint" style={{ 
 						display: 'none',
 						alignItems: 'center',
@@ -391,7 +391,6 @@ const Dashboard = ({ onToggleMenu }) => {
 				<div 
 					className="responsive-table-container"
 					style={{
-						// Force horizontal scrolling
 						overflowX: 'scroll',
 						overflowY: 'hidden',
 						WebkitOverflowScrolling: 'touch',
@@ -411,7 +410,6 @@ const Dashboard = ({ onToggleMenu }) => {
 						</div>
 					) : (
 					<table style={{ 
-							// Force table to be wider than mobile screens to enable scrolling
 							width: '1000px', 
 							minWidth: '1000px',
 							borderCollapse: 'collapse', 

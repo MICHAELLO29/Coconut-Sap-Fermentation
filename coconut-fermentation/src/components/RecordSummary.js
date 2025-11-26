@@ -113,7 +113,7 @@ const RecordSummary = ({ onToggleMenu }) => {
 	const [summaryLoading, setSummaryLoading] = useState(false);
 	useEffect(()=>{ setSummaryLoading(true); const t=setTimeout(()=>setSummaryLoading(false), 300); return ()=>clearTimeout(t); }, [selectedId]);
 
-	// RecordSummary: keyboard prev/next and ARIA live announcements
+	// RecordSummary Left/Rigth navigation
 	const liveRef = useRef(null);
 	useEffect(()=>{
 		const onKey = (e) => {

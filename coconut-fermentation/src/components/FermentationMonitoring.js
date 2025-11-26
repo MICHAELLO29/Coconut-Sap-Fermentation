@@ -41,7 +41,6 @@ const formatDMY = (date) => {
 };
 
 // No longer needed - status is now determined by parameter ranges, not batch age
-// Keeping function for backward compatibility but it doesn't affect isReady anymore
 const computeStatuses = (list) => {
 	const sorted = [...list].sort((a, b) => parseDMY(a.startDate) - parseDMY(b.startDate));
 	return sorted.map((b, idx) => ({ ...b, fermentation_status: idx === 1 ? 'Ready' : 'N/A' }));
@@ -53,7 +52,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	// Hold raw data from API
 	const [batchesRaw, setBatchesRaw] = useState([]);
 
-	// Compute enriched batches (if you want to keep computeStatuses logic)
+	// Compute enriched batches
 	const batches = useMemo(() => computeStatuses(batchesRaw), [batchesRaw]);
 
 	// Keep them sorted (smallest → largest, or flip if you want newest first)
@@ -198,7 +197,6 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	// Generate monitoring data only when live monitoring starts
 	useEffect(() => {
 		if (!isLive) {
-			// Don't clear data when stopping - preserve history across sessions
 			return;
 		}
 
@@ -229,7 +227,6 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 					
 					let formattedTime;
 					if (timestamp) {
-						// Parse the UTC timestamp from database
 						// Database stores in UTC format (e.g., "2025-11-26T06:50:17.863730")
 						const utcDate = new Date(timestamp);
 						
@@ -272,8 +269,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		
 		generateData();
 	}, [selectedId, isLive, monitoringData.length]);
-	
-	// Use monitoring data directly without smoothing
+
 	const displayData = monitoringData;
 	
 	// Live updates
@@ -346,10 +342,9 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	// Update timestamp every second when live monitoring is active
 	useEffect(() => {
 		if (!isLive) return;
-		
 		const interval = setInterval(() => {
 			setCurrentTimestamp(new Date());
-		}, 1000); // Update every second
+		}, 1000); 
 		
 		return () => clearInterval(interval);
 	}, [isLive]);
@@ -370,18 +365,32 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	const checkBrixApproaching = () => {
 		if (!isLive || monitoringData.length === 0) return false;
 		const latestData = monitoringData[monitoringData.length - 1];
-		return latestData.brix <= 11;
+		return latestData.brix >= 1 && latestData.brix <= 11;
+	};
+	
+	// Check if fermentation is complete/ready (Brix ≤ 1)
+	const checkBrixReady = () => {
+		if (!isLive || monitoringData.length === 0) return false;
+		const latestData = monitoringData[monitoringData.length - 1];
+		const brixReady = latestData.brix <= 1;
+		const gravityInRange = latestData.gravity >= 0 && latestData.gravity <= 12;
+		const tempInRange = latestData.temperature >= 28 && latestData.temperature <= 32;
+		
+		return brixReady && gravityInRange && tempInRange;
 	};
 	
 	const isReady = checkParametersInRange();
 	const isApproaching = checkBrixApproaching();
+	const isBrixReady = checkBrixReady();
 	const analysisText = !isLive 
 		? 'Click "Start Live" to begin real-time monitoring from IoT sensors.'
-		: isReady 
-			? 'Fermentation is progressing normally. All parameters are within optimal ranges.'
-			: isApproaching
-				? 'Fermentation is steadily reaching its ready-to-ferment state.'
-				: 'Live monitoring active. Data updates every 15 seconds from IoT devices.';
+		: isBrixReady 
+			? 'Fermentation is ready!'
+			: isReady 
+				? 'Fermentation is progressing normally. All parameters are within optimal ranges.'
+				: isApproaching
+					? 'Fermentation is steadily reaching its ready-to-ferment state.'
+					: 'Live monitoring active. Data updates every 15 seconds from IoT devices.';
 
 	const toggleParameter = (param) => {
 		setVisibleParameters(prev => ({
@@ -415,7 +424,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 					duration: duration,
 					batchId: selectedId
 				};
-				setSessionHistory(prev => [newSession, ...prev].slice(0, 10)); // Keep last 10 sessions
+				setSessionHistory(prev => [newSession, ...prev].slice(0, 10));
 			}
 		}
 	};
@@ -689,7 +698,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 									src="/Monitoring.png"  
 									alt="Monitoring Icon"
 									style={{ 
-										width: 120,            // adjust size as needed
+										width: 120,            
 										height: 120, 
 										marginBottom: 16,
 										filter: 'drop-shadow(0 4px 8px rgba(15, 118, 110, 0.2))'
@@ -710,7 +719,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 										src="Cursor.png" 
 										alt="Cursor Icon"
 										style={{ 
-											width: 18,            // adjust size as needed
+											width: 18,            
 											height: 24, 
 											marginRight: 6,
 											verticalAlign: 'middle',
@@ -884,7 +893,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 					
 					{/* Analysis */}
 					<div className="ux-card" style={{ 
-						background: !isLive ? '#f8f9fa' : isReady ? '#e8f5e8' : isApproaching ? '#dbeafe' : '#fee2e2', 
+						background: !isLive ? '#f8f9fa' : isBrixReady ? '#e8f5e8' : isApproaching ? '#dbeafe' : '#fee2e2', 
 						padding: 18, 
 						borderRadius: 12, 
 						boxShadow: '0 2px 8px rgba(0,0,0,0.06)' 
@@ -892,14 +901,14 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 						<div style={{ 
 							fontSize: 18, 
 							fontWeight: 800, 
-							color: !isLive ? '#666' : isReady ? '#1b5e20' : isApproaching ? '#1e40af' : '#7f1d1d', 
+							color: !isLive ? '#666' : isBrixReady ? '#1b5e20' : isApproaching ? '#1e40af' : '#7f1d1d', 
 							marginBottom: 8 
 						}}>Analysis</div>
 						<div style={{ display: 'flex', gap: 10 }}>
 							<div style={{ 
 								width: 20, 
 								height: 20, 
-								background: !isLive ? '#999' : isReady ? '#16a34a' : isApproaching ? '#3b82f6' : '#e11d48', 
+								background: !isLive ? '#999' : isBrixReady ? '#16a34a' : isApproaching ? '#3b82f6' : '#e11d48', 
 								color: '#fff', 
 								borderRadius: '50%', 
 								display: 'flex', 
@@ -908,10 +917,10 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 								fontSize: 12, 
 								fontWeight: 800 
 							}}>
-								{!isLive ? '⏸' : isReady ? '✓' : isApproaching ? '◐' : '●'}
+								{!isLive ? '⏸' : isBrixReady ? '✓' : isApproaching ? '◐' : '●'}
 							</div>
 							<div style={{ 
-								color: !isLive ? '#666' : isReady ? '#065f46' : isApproaching ? '#1e40af' : '#7f1d1d', 
+								color: !isLive ? '#666' : isBrixReady ? '#065f46' : isApproaching ? '#1e40af' : '#7f1d1d', 
 								fontWeight: 600, 
 								fontSize: 14 
 							}}>{analysisText}</div>
