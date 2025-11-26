@@ -374,9 +374,8 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 		const latestData = monitoringData[monitoringData.length - 1];
 		const brixReady = latestData.brix <= 1;
 		const gravityInRange = latestData.gravity >= 0 && latestData.gravity <= 12;
-		const tempInRange = latestData.temperature >= 28 && latestData.temperature <= 32;
 		
-		return brixReady && gravityInRange && tempInRange;
+		return brixReady && gravityInRange;
 	};
 	
 	const isReady = checkParametersInRange();
