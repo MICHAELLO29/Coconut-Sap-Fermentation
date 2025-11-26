@@ -198,38 +198,80 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	// Generate monitoring data only when live monitoring starts
 	useEffect(() => {
 		if (!isLive) {
-			setMonitoringData([]);
+			// Don't clear data when stopping - preserve history across sessions
 			return;
 		}
 
 		const generateData = async () => {
+			// Only fetch initial data if we don't have any data yet
+			if (monitoringData.length > 0) {
+				console.log('Resuming live monitoring with existing data');
+				return;
+			}
+			
 			// Try to fetch real IoT data first
 			const iotData = await fetchIoTData();
 			
 			if (iotData) {
 				console.log('IoT Data received:', iotData);
 				console.log('First data point:', iotData[0]);
-				// Add timestamp to each data point if it doesn't exist
-				const dataWithTimestamps = iotData.map((point, index) => ({
-					...point,
-					time: point.time || new Date().toLocaleTimeString('en-US', {
-						hour: '2-digit',
-						minute: '2-digit',
-						second: '2-digit',
-						hour12: true
-					})
-				}));
+				console.log('Sample timestamp fields:', {
+					timestamp: iotData[0]?.timestamp,
+					created_at: iotData[0]?.created_at,
+					recorded_at: iotData[0]?.recorded_at,
+					time: iotData[0]?.time
+				});
+				
+				// Format timestamps from API data
+				const dataWithTimestamps = iotData.map((point, index) => {
+					// Try to get timestamp from various possible field names
+					const timestamp = point.timestamp || point.created_at || point.recorded_at || point.time;
+					
+					let formattedTime;
+					if (timestamp) {
+						// Parse the UTC timestamp from database
+						// Database stores in UTC format (e.g., "2025-11-26T06:50:17.863730")
+						const utcDate = new Date(timestamp);
+						
+						// Convert UTC to Philippine Time (UTC+8) by adding 8 hours
+						const philippineDate = new Date(utcDate.getTime() + (8 * 60 * 60 * 1000));
+						
+						// Format the Philippine time
+						formattedTime = philippineDate.toLocaleTimeString('en-US', {
+							hour: '2-digit',
+							minute: '2-digit',
+							second: '2-digit',
+							hour12: true
+						});
+						
+						if (index < 3) {
+							console.log(`Point ${index}: UTC: ${utcDate.toISOString()}, Philippine Time: ${formattedTime}`);
+						}
+					} else {
+						// Fallback: use current time only if no timestamp exists
+						formattedTime = new Date().toLocaleTimeString('en-US', {
+							hour: '2-digit',
+							minute: '2-digit',
+							second: '2-digit',
+							hour12: true
+						});
+					}
+					
+					return {
+						...point,
+						time: formattedTime
+					};
+				});
 				setMonitoringData(dataWithTimestamps);
 			} else {
 				// No fallback - device must be connected for live monitoring
 				console.log('IoT device not connected - no data available');
 				setIsLive(false); // Turn off live mode if device is not available
-				setMonitoringData([]);
 			}
 		};
 		
 		generateData();
-	}, [selectedId, isLive]);
+	}, [selectedId, isLive, monitoringData.length]);
 	
 	// Use monitoring data directly without smoothing
 	const displayData = monitoringData;
@@ -246,15 +288,34 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 				// Get the latest data point from the API
 				const latestPoint = iotData[iotData.length - 1];
 				
-				// Add timestamp to the new data point
-				const newPointWithTimestamp = {
-					...latestPoint,
-					time: latestPoint.time || new Date().toLocaleTimeString('en-US', {
+				// Format timestamp from API data
+				const timestamp = latestPoint.timestamp || latestPoint.created_at || latestPoint.recorded_at || latestPoint.time;
+				let formattedTime;
+				
+				if (timestamp) {
+					// Parse UTC timestamp and convert to Philippine Time (UTC+8)
+					const utcDate = new Date(timestamp);
+					const philippineDate = new Date(utcDate.getTime() + (8 * 60 * 60 * 1000));
+					
+					formattedTime = philippineDate.toLocaleTimeString('en-US', {
 						hour: '2-digit',
 						minute: '2-digit',
 						second: '2-digit',
 						hour12: true
-					})
+					});
+				} else {
+					// Fallback: use current time only if no timestamp exists
+					formattedTime = new Date().toLocaleTimeString('en-US', {
+						hour: '2-digit',
+						minute: '2-digit',
+						second: '2-digit',
+						hour12: true
+					});
+				}
+				
+				const newPointWithTimestamp = {
+					...latestPoint,
+					time: formattedTime
 				};
 				
 				// Append the new point to existing data (keep all historical data)
