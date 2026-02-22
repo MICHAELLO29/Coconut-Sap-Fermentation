@@ -50,52 +50,52 @@ const Header = ({ title, rightContent, onToggleMenu }) => {
 		},
 		hamburgerMenu: {
 			cursor: 'pointer',
-			transform: 'translateZ(0)',
 			zIndex: 1001,
-			padding: 'var(--spacing-2)',
-			margin: 'calc(-1 * var(--spacing-2))',
 			flexShrink: 0,
-			borderRadius: 'var(--radius-md)',
-			transition: 'all var(--transition-fast)',
-			position: 'relative',
+			background: 'none',
+			border: 'none',
+			padding: 0,
 			display: 'flex',
-			flexDirection: 'column',
-			justifyContent: 'center',
 			alignItems: 'center',
+			justifyContent: 'center',
 			minHeight: '44px',
 			minWidth: '44px'
-		},
-		hamburgerLine: {
-			width: window.innerWidth <= 480 ? 28 : 36,
-			height: window.innerWidth <= 480 ? 4 : 6,
-			background: '#bdbdbd',
-			borderRadius: 6,
-			marginBottom: window.innerWidth <= 480 ? 4 : 6
-		},
-		hamburgerLineBottom: {
-			width: window.innerWidth <= 480 ? 28 : 36,
-			height: window.innerWidth <= 480 ? 4 : 6,
-			background: '#bdbdbd',
-			borderRadius: 6
 		}
 	};
+
+	const iconSize = window.innerWidth <= 480 ? 38 : 44;
+	const lineW = window.innerWidth <= 480 ? 18 : 22;
+	const lineH = 3;
+	const lineGap = 5;
 
 	return (
 		<div style={headerStyles.container}>
 			<div style={headerStyles.leftSection}>
-				<button 
+				<button
 					aria-label="Toggle navigation menu"
-					onClick={onToggleMenu} 
+					onClick={onToggleMenu}
 					style={headerStyles.hamburgerMenu}
-					onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--color-gray-100)'}
-					onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-					onFocus={(e) => e.currentTarget.style.boxShadow = '0 0 0 3px var(--color-primary-200)'}
-					onBlur={(e) => e.currentTarget.style.boxShadow = 'none'}
 				>
-					<span className="sr-only">Menu</span>
-					<div style={headerStyles.hamburgerLine} />
-					<div style={headerStyles.hamburgerLine} />
-					<div style={headerStyles.hamburgerLineBottom} />
+					{/* Rounded rectangle box with 3 lines inside */}
+					<div style={{
+						width: iconSize, height: iconSize,
+						border: '2px solid #c4c4c4',
+						borderRadius: 10,
+						display: 'flex',
+						flexDirection: 'column',
+						alignItems: 'center',
+						justifyContent: 'center',
+						gap: lineGap,
+						background: '#fff',
+						transition: 'border-color 150ms, box-shadow 150ms'
+					}}
+					onMouseEnter={e => e.currentTarget.style.borderColor = '#9ca3af'}
+					onMouseLeave={e => e.currentTarget.style.borderColor = '#c4c4c4'}
+					>
+						<div style={{ width: lineW, height: lineH, background: '#bdbdbd', borderRadius: 3 }} />
+						<div style={{ width: lineW, height: lineH, background: '#bdbdbd', borderRadius: 3 }} />
+						<div style={{ width: lineW, height: lineH, background: '#bdbdbd', borderRadius: 3 }} />
+					</div>
 				</button>
 				<div style={headerStyles.logoContainer}>
 					<img src="/DashboardIcon.png" alt="Logo" style={headerStyles.logo} />

@@ -4,8 +4,13 @@ import RecordSummary from './components/RecordSummary';
 import FermentationMonitoring from './components/FermentationMonitoring';
 import ConfirmBatch from './components/ConfirmBatch';
 import SideMenu from './components/SideMenu';
+import LoginPage from './components/LoginPage';
+import SignupPage from './components/SignupPage';
+import SettingsPage from './components/SettingsPage';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
-function App() {
+function AppInner() {
+	const { user } = useAuth();
 	const [currentPage, setCurrentPage] = useState('dashboard');
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -33,11 +38,11 @@ function App() {
 	const [autoStartLive, setAutoStartLive] = useState(false);
 
 	const handleNavigate = (page, options = {}) => {
-	if (page === 'fermentation-monitoring' && options.autoStartLive) {
-		setAutoStartLive(true);
-	}
-	setCurrentPage(page);
-	setMenuOpen(false);
+		if (page === 'fermentation-monitoring' && options.autoStartLive) {
+			setAutoStartLive(true);
+		}
+		setCurrentPage(page);
+		setMenuOpen(false);
 	};
 
 	const handleToggleMenu = () => {
@@ -50,6 +55,12 @@ function App() {
 		setMenuOpen(false);
 	};
 
+	// Auth-only pages — no sidebar
+	if (!user) {
+		if (currentPage === 'signup') return <SignupPage onNavigate={handleNavigate} />;
+		return <LoginPage onNavigate={handleNavigate} />;
+	}
+
 	const renderCurrentPage = () => {
 		switch (currentPage) {
 			case 'dashboard':
@@ -57,14 +68,16 @@ function App() {
 			case 'record-summary':
 				return <RecordSummary onToggleMenu={handleToggleMenu} />;
 			case 'fermentation-monitoring':
-  				return (
+				return (
 					<FermentationMonitoring 
-					onToggleMenu={handleToggleMenu}
-					onNavigate={handleNavigate}
+						onToggleMenu={handleToggleMenu}
+						onNavigate={handleNavigate}
 					/>
-				)
+				);
 			case 'confirm-batch':
-  				return <ConfirmBatch onToggleMenu={handleToggleMenu} onNavigate={handleNavigate} />;
+				return <ConfirmBatch onToggleMenu={handleToggleMenu} onNavigate={handleNavigate} />;
+			case 'settings':
+				return <SettingsPage onToggleMenu={handleToggleMenu} onNavigate={handleNavigate} />;
 			default:
 				return <Dashboard onToggleMenu={handleToggleMenu} />;
 		}
@@ -94,7 +107,6 @@ function App() {
 				/>
 			)}
 			
-			{/* Only render SideMenu when needed */}
 			<SideMenu
 				isOpen={menuOpen}
 				onClose={handleCloseMenu}
@@ -117,6 +129,14 @@ function App() {
 				{renderCurrentPage()}
 			</div>
 		</div>
+	);
+}
+
+function App() {
+	return (
+		<AuthProvider>
+			<AppInner />
+		</AuthProvider>
 	);
 }
 

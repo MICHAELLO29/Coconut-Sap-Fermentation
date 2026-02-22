@@ -7,6 +7,8 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
     style.innerHTML = `
       @keyframes cbFadeUp { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
       @keyframes cbPop { from { transform: scale(.98); opacity: .6 } to { transform: scale(1); opacity: 1 } }
+      @keyframes cbSlideDown { from { opacity: 0; transform: translateY(-24px) scale(.97) } to { opacity: 1; transform: translateY(0) scale(1) } }
+      @keyframes cbPulseGreen { 0%,100% { box-shadow: 0 0 0 0 rgba(22,163,74,.4) } 50% { box-shadow: 0 0 0 10px rgba(22,163,74,0) } }
       .cb-card { animation: cbFadeUp .32s ease both; }
       .cb-stagger > * { animation: cbFadeUp .32s ease both; }
       .cb-stagger > *:nth-child(1) { animation-delay: .04s }
@@ -26,14 +28,23 @@ const ConfirmBatch = ({ onNavigate, onToggleMenu }) => {
       .cb-meter-bar { height:100%; background:#16a34a; width:0; transition: width 240ms ease }
       .cb-skeleton { background: linear-gradient(90deg,#eee 25%, #f5f5f5 37%, #eee 63%); background-size:400% 100%; animation: cbShimmer 1.2s infinite }
       @keyframes cbShimmer { 0% { background-position: 100% 0 } 100% { background-position: -100% 0 } }
+      .cb-iot-modal { animation: cbSlideDown .35s cubic-bezier(.22,1,.36,1) both }
+      .cb-iot-pulse { animation: cbPulseGreen 1.8s ease-in-out infinite }
       @media (prefers-reduced-motion: reduce) {
         .cb-card, .cb-stagger > * { animation: none }
         .cb-meter-bar { transition: none }
+        .cb-iot-modal { animation: none }
+        .cb-iot-pulse { animation: none }
       }
     `;
     document.head.appendChild(style);
     return () => { document.head.removeChild(style); };
   }, []);
+
+  // IoT connection notification state
+  const [iotConnected, setIotConnected] = useState(false);
+  const [showIotModal, setShowIotModal] = useState(false);
+  const iotAlertedRef = useRef(false); // only alert once per page load
   
   // Form state
   const [formData, setFormData] = useState({
@@ -67,6 +78,12 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
               battery: data.battery != null ? String(data.battery) : "",
               timestamp: data.timestamp
             }));
+            // Show IoT connection notification the first time data arrives
+            if (!iotAlertedRef.current) {
+              iotAlertedRef.current = true;
+              setIotConnected(true);
+              setShowIotModal(true);
+            }
           }
         })
         .catch(err => console.error("Preview fetch error:", err));
@@ -264,6 +281,80 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', background: '#f5f5f5', minHeight: '100vh' }}>
+
+      {/* IoT Hydrometer Connection Modal */}
+      {showIotModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 16
+        }}>
+          <div className="cb-iot-modal" style={{
+            background: '#fff',
+            borderRadius: 20,
+            padding: '32px 36px',
+            maxWidth: 420,
+            width: '100%',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
+            textAlign: 'center',
+            position: 'relative'
+          }}>
+            {/* Close button */}
+            <button
+              onClick={() => setShowIotModal(false)}
+              style={{
+                position: 'absolute', top: 14, right: 16,
+                background: 'none', border: 'none', fontSize: 22,
+                cursor: 'pointer', color: '#9ca3af', lineHeight: 1
+              }}
+              aria-label="Close"
+            >×</button>
+
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#065f46', marginBottom: 8 }}>
+              IoT Hydrometer Connected!
+            </div>
+            <div style={{ fontSize: 14, color: '#374151', marginBottom: 20, lineHeight: 1.6 }}>
+              The iSpindel hydrometer is now transmitting data. Sensor readings have been populated in the form below.
+            </div>
+
+            {/* Reading summary */}
+            <div style={{
+              background: '#f0fdf4', border: '1px solid #bbf7d0',
+              borderRadius: 12, padding: '14px 18px',
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px',
+              textAlign: 'left', marginBottom: 24, fontSize: 13
+            }}>
+              {[
+                { label: 'Brix', value: formData.brix ? `${parseFloat(formData.brix).toFixed(1)} °Bx` : '—' },
+                { label: 'Gravity', value: formData.sg ? parseFloat(formData.sg).toFixed(3) : '—' },
+                { label: 'Temperature', value: formData.temperature ? `${parseFloat(formData.temperature).toFixed(1)} °C` : '—' },
+                { label: 'Battery', value: formData.battery ? `${parseFloat(formData.battery).toFixed(2)} V` : '—' }
+              ].map(item => (
+                <div key={item.label}>
+                  <div style={{ color: '#6b7280', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{item.label}</div>
+                  <div style={{ color: '#065f46', fontWeight: 800, fontSize: 14 }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowIotModal(false)}
+              style={{
+                background: '#16a34a', color: '#fff',
+                border: 'none', borderRadius: 12,
+                padding: '12px 32px', fontWeight: 800,
+                fontSize: 15, cursor: 'pointer',
+                width: '100%',
+                boxShadow: '0 4px 14px rgba(22,163,74,0.3)'
+              }}
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header same pattern as others with hamburger */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '20px 30px', backgroundColor: 'white', borderBottom: '1px solid #e0e0e0', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         <div onClick={onToggleMenu} title="menu" style={{ cursor: 'pointer', marginRight: 15 }}>
@@ -274,6 +365,21 @@ const API_BASE = `http://${process.env.REACT_APP_API_IP || "127.0.0.1"}:${proces
         <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
           <img src="/DashboardIcon.png" alt="Logo" style={{ width: 36, height: 36 }} />
           <h1 style={{ color: '#0ba376ff', fontSize: 28, fontWeight: 700, margin: 0 }}>Confirm Batch</h1>
+          {/* IoT connection status badge */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '4px 12px', borderRadius: 999,
+            background: iotConnected ? '#f0fdf4' : '#f9fafb',
+            border: `1px solid ${iotConnected ? '#bbf7d0' : '#e5e7eb'}`,
+            fontSize: 12, fontWeight: 700,
+            color: iotConnected ? '#16a34a' : '#9ca3af'
+          }}>
+            <div style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: iotConnected ? '#16a34a' : '#d1d5db'
+            }} />
+            {iotConnected ? 'Hydrometer Connected' : 'Waiting for device…'}
+          </div>
         </div>
       </div>
 

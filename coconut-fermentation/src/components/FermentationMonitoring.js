@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Header from './Header';
 import { commonStyles, useGlobalStyles } from './styles/GlobalStyles';
@@ -112,6 +112,11 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	
 	// Add state for controlling data points visibility
 	const [showDataPoints, setShowDataPoints] = useState(true);
+
+	// Fermentation completion notification
+	const [showCompletionModal, setShowCompletionModal] = useState(false);
+	const [emailStatus, setEmailStatus] = useState(null); // null | 'sending' | 'sent' | 'error'
+	const completionAlertedRef = useRef(false); // only alert once per live session
 	
 	// Time tracking for live sessions
 	const [sessionStartTime, setSessionStartTime] = useState(null);
@@ -206,8 +211,8 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 				console.log('Resuming live monitoring with existing data');
 				return;
 			}
-			
-			// Try to fetch real IoT data first
+
+			// Fetch real IoT data from backend
 			const iotData = await fetchIoTData();
 			
 			if (iotData) {
@@ -317,23 +322,9 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 				// Append the new point to existing data (keep all historical data)
 				setMonitoringData(prev => [...prev, newPointWithTimestamp]);
 			} else {
-				// Fallback to simulated updates - add a new point with slight variations
-				setMonitoringData(prev => {
-					if (prev.length === 0) return prev;
-					const lastPoint = prev[prev.length - 1];
-					const newPoint = {
-						brix: Math.max(8, Math.min(18, lastPoint.brix + (Math.random() - 0.5) * 0.1)),
-						gravity: Math.max(0, Math.min(12, lastPoint.gravity + (Math.random() - 0.5) * 0.2)),
-						temperature: Math.max(20, Math.min(35, lastPoint.temperature + (Math.random() - 0.5) * 0.5)),
-						time: new Date().toLocaleTimeString('en-US', {
-							hour: '2-digit',
-							minute: '2-digit',
-							second: '2-digit',
-							hour12: true
-						})
-					};
-					return [...prev, newPoint];
-				});
+				// No fallback - device must be connected for live monitoring
+				console.log('IoT device not connected - no data available');
+				setIsLive(false); // Turn off live mode if device is not available
 			}
 		}, 15000); // Update every 15 seconds
 		return () => clearInterval(interval);
@@ -401,7 +392,8 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 	// Handle live monitoring toggle with time tracking
 	const handleLiveToggle = () => {
 		if (!isLive) {
-			// Starting live monitoring
+			// Starting live monitoring — reset completion alert for new session
+			completionAlertedRef.current = false;
 			const startTime = new Date();
 			setSessionStartTime(startTime);
 			setSessionEndTime(null);
@@ -412,8 +404,7 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 			const endTime = new Date();
 			setSessionEndTime(endTime);
 			setIsLive(false);
-			
-			// Save session to history
+
 			if (sessionStartTime) {
 				const duration = Math.floor((endTime - sessionStartTime) / 1000);
 				const newSession = {
@@ -427,6 +418,39 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 			}
 		}
 	};
+
+	// Send fermentation completion email via backend (or mock)
+	const sendCompletionEmail = async () => {
+		setEmailStatus('sending');
+		try {
+			const res = await fetch(`${API_BASE}/notify_completion`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ batch_id: selectedId })
+			});
+			setEmailStatus(res.ok ? 'sent' : 'error');
+		} catch (err) {
+			console.error('Email notification error:', err);
+			setEmailStatus('error');
+		}
+	};
+
+	// Watch for fermentation completion and trigger notification
+	useEffect(() => {
+		if (!isLive || monitoringData.length === 0) return;
+		if (completionAlertedRef.current) return;
+
+		const latestData = monitoringData[monitoringData.length - 1];
+		const brixReady = latestData.brix !== undefined && latestData.brix <= 1;
+		const gravityInRange = latestData.gravity !== undefined && latestData.gravity >= 0 && latestData.gravity <= 12;
+
+		if (brixReady && gravityInRange) {
+			completionAlertedRef.current = true;
+			setShowCompletionModal(true);
+			sendCompletionEmail();
+		}
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [monitoringData, isLive]);
 
 	// Update elapsed time every second when live
 	useEffect(() => {
@@ -452,6 +476,104 @@ const FermentationMonitoring = ({ onToggleMenu }) => {
 
 	return (
 		<div className="fermentation-monitoring-page" style={commonStyles.pageContainer}>
+
+			{/* Fermentation Completion Modal */}
+			{showCompletionModal && (
+				<div style={{
+					position: 'fixed', inset: 0, zIndex: 9999,
+					background: 'rgba(0,0,0,0.5)',
+					display: 'flex', alignItems: 'center', justifyContent: 'center',
+					padding: 16
+				}}>
+					<div style={{
+						background: '#fff',
+						borderRadius: 20,
+						padding: '36px 40px',
+						maxWidth: 460,
+						width: '100%',
+						boxShadow: '0 24px 60px rgba(0,0,0,0.2)',
+						textAlign: 'center',
+						position: 'relative',
+						animation: 'cbSlideDown .35s cubic-bezier(.22,1,.36,1) both'
+					}}>
+						{/* Close */}
+						<button
+							onClick={() => setShowCompletionModal(false)}
+							style={{
+								position: 'absolute', top: 14, right: 16,
+								background: 'none', border: 'none', fontSize: 22,
+								cursor: 'pointer', color: '#9ca3af', lineHeight: 1
+							}}
+							aria-label="Close"
+						>×</button>
+
+						<div style={{ fontSize: 24, fontWeight: 900, color: '#065f46', marginBottom: 8 }}>
+							Fermentation Complete!
+						</div>
+						<div style={{ fontSize: 14, color: '#374151', marginBottom: 6, lineHeight: 1.6 }}>
+							Batch <strong>{selectedId}</strong> has reached the target Brix level (≤ 1°Bx).
+							The coconut sap fermentation is ready.
+						</div>
+
+						{/* Email status */}
+						<div style={{
+							margin: '16px 0',
+							padding: '10px 16px',
+							borderRadius: 10,
+							background: emailStatus === 'sent' ? '#f0fdf4' : emailStatus === 'error' ? '#fef2f2' : '#f8fafc',
+							border: `1px solid ${emailStatus === 'sent' ? '#bbf7d0' : emailStatus === 'error' ? '#fecaca' : '#e2e8f0'}`,
+							fontSize: 13,
+							fontWeight: 600,
+							color: emailStatus === 'sent' ? '#065f46' : emailStatus === 'error' ? '#991b1b' : '#64748b',
+							display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+						}}>
+							{emailStatus === 'sending' && <span> Sending email notification…</span>}
+							{emailStatus === 'sent' && <span> Email notification sent successfully</span>}
+							{emailStatus === 'error' && <span> Email could not be sent — check server logs</span>}
+							{!emailStatus && <span> Preparing email notification…</span>}
+						</div>
+
+						{/* Final Readings */}
+						{monitoringData.length > 0 && (() => {
+							const last = monitoringData[monitoringData.length - 1];
+							return (
+								<div style={{
+									background: '#f0fdf4', border: '1px solid #bbf7d0',
+									borderRadius: 12, padding: '12px 16px',
+									display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px',
+									textAlign: 'center', marginBottom: 24, fontSize: 13
+								}}>
+									{[
+										{ label: 'Brix', value: last.brix != null ? `${last.brix.toFixed(2)}°Bx` : '—' },
+										{ label: 'Gravity', value: last.gravity != null ? last.gravity.toFixed(3) : '—' },
+										{ label: 'Temperature', value: last.temperature != null ? `${last.temperature.toFixed(1)}°C` : '—' }
+									].map(item => (
+										<div key={item.label}>
+											<div style={{ color: '#6b7280', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{item.label}</div>
+											<div style={{ color: '#065f46', fontWeight: 800, fontSize: 15 }}>{item.value}</div>
+										</div>
+									))}
+								</div>
+							);
+						})()}
+
+						<button
+							onClick={() => setShowCompletionModal(false)}
+							style={{
+								background: '#16a34a', color: '#fff',
+								border: 'none', borderRadius: 12,
+								padding: '12px 32px', fontWeight: 800,
+								fontSize: 15, cursor: 'pointer',
+								width: '100%',
+								boxShadow: '0 4px 14px rgba(22,163,74,0.3)'
+							}}
+						>
+							Continue
+						</button>
+					</div>
+				</div>
+			)}
+
 			<Header title="Fermentation Monitoring" onToggleMenu={onToggleMenu} />
 			
 			<div className="fermentation-main-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, padding: '0 24px 24px' }}>

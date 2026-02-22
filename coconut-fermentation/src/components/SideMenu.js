@@ -55,7 +55,8 @@ const SideMenu = ({ isOpen, onClose, onNavigate, currentPage, isMobile }) => {
 		{ key: 'dashboard', label: 'Dashboard' },
 		{ key: 'record-summary', label: 'Record Summary' },
 		{ key: 'fermentation-monitoring', label: 'Fermentation Monitoring' },
-		{ key: 'confirm-batch', label: 'Confirm Batch' }
+		{ key: 'confirm-batch', label: 'Confirm Batch' },
+		{ key: 'settings', label: 'Settings' }
 	];
 
 	return (
