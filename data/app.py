@@ -3,6 +3,10 @@ from flask_cors import CORS
 import sqlite3
 from datetime import datetime
 import smtplib
+import smtplib
+import os
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 #import tensorflow as tf
 import numpy as np
 import pandas as pd
